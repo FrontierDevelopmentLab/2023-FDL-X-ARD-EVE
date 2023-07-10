@@ -1,3 +1,9 @@
 torch
 torchvision
 albumentations
+pytorch_lightning
+grpcio
+astropy
+sunpy
+dask
+matplotlib

@@ -1,12 +1,9 @@
 import gc
 import glob
 import os
-import shutil
 from warnings import simplefilter
 
 import torch
-from astropy import units as u
-from dateutil.parser import parse
 from tqdm import tqdm
 
 from iti.translate import STEREOToSDO

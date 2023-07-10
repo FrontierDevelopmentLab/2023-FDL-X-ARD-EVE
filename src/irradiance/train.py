@@ -13,9 +13,9 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from pathlib import Path
 
-from s4pi.irradiance.models.model import IrradianceModel
-from s4pi.irradiance.utilities.callback import ImagePredictionLogger
-from s4pi.irradiance.utilities.data_loader import IrradianceDataModule
+from irradiance.models.model import IrradianceModel
+from irradiance.utilities.callback import ImagePredictionLogger
+from irradiance.utilities.data_loader import IrradianceDataModule
 
 p = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)

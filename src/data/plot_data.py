@@ -9,7 +9,7 @@ import shutil
 from astropy.io.fits import getheader
 from tqdm import tqdm
 
-from s4pi.data.utils import loadAIAMap, loadMap, sdo_norms
+from data.utils import loadAIAMap, loadMap, sdo_norms
 
 sdo_file_path = '/mnt/nerf-data/sdo_2012_11/304/*'
 iti_a_file_path = '/mnt/nerf-data/stereo_2012_11_converted/304/*_A.fits'
@@ -25,7 +25,7 @@ out_path = '/home/robert_jarolim/verification'
 shutil.rmtree(out_path)
 os.makedirs(out_path)
 
-with multiprocessing.Pool(os.cpu_count() // 2) as p:
+with multiprocessing.Pool(int(os.cpu_count()) // 2) as p:
     for path, s_maps in tqdm(zip(sdo_paths, p.imap(loadAIAMap, sdo_paths))):
         s_maps.plot(norm=sdo_norms[304])
         bn = os.path.basename(path)

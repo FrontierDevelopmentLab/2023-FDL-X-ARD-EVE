@@ -7,7 +7,7 @@ from astropy.visualization import ImageNormalize, AsinhStretch, LinearStretch
 from iti.data.editor import LoadMapEditor, NormalizeRadiusEditor, AIAPrepEditor
 from sunpy.visualization.colormaps import cm
 
-from s4pi.maps.utilities.reprojection import transform
+from maps.utilities.reprojection import transform
 
 sdo_img_norm = ImageNormalize(vmin=0, vmax=1, stretch=LinearStretch(), clip=True)
 
