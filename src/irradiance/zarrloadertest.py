@@ -1,4 +1,3 @@
-import gcsfs
 import zarr
 import dask.array as da
 import matplotlib.pyplot as plt

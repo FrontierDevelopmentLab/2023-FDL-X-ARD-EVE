@@ -7,3 +7,6 @@ astropy
 sunpy
 dask
 matplotlib
+wandb
+zarr
+pandas

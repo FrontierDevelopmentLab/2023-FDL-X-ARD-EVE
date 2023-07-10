@@ -1,6 +1,5 @@
 import argparse
 import os
-import sys
 
 import albumentations as A
 import argparse
@@ -8,10 +7,8 @@ import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
 from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
-
-from pathlib import Path
 
 from irradiance.models.model import IrradianceModel
 from irradiance.utilities.callback import ImagePredictionLogger
@@ -50,7 +47,7 @@ p.add_argument('-checkpoint_name', type=str, default=None, help='Filename to loa
 
 args = p.parse_args()
 
-# # For repeatability
+# For reproducibility
 seed = args.seed
 torch.manual_seed(seed)
 np.random.seed(seed)
@@ -69,13 +66,18 @@ train_transforms = A.Compose([
 val_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
 
 # Init our model
-data_loader = IrradianceDataModule(args.stack_csv_path, args.eve_npy_path, num_workers=os.cpu_count() // 2,
-                                   train_transforms=train_transforms, val_transforms=val_transforms)
+data_loader = IrradianceDataModule(
+    args.stack_csv_path, 
+    args.eve_npy_path, 
+    num_workers=os.cpu_count() // 2,
+    train_transforms=train_transforms, val_transforms=val_transforms
+) # type: ignore
+
 data_loader.setup()
 model = IrradianceModel(d_input=4, d_output=14, eve_norm=eve_norm)
 
 # initialize logger
-wandb_logger = WandbLogger(name=None, entity='4pi-euv',  project='irradiance-test',  group=f'seed-{seed}')
+wandb_logger = WandbLogger(name=None, entity='v1',  project='2023-virtual-eve',  group=f'seed-{seed}')
 
 # initialize plot callback - change to valid_ds
 total_n_valid = len(data_loader.valid_ds)
@@ -83,6 +85,8 @@ plot_data = [data_loader.valid_ds[i] for i in range(0, total_n_valid, total_n_va
 plot_images = torch.stack([image for image, eve in plot_data])
 plot_eve = torch.stack([eve for image, eve in plot_data])
 wl_names = np.load(args.eve_wl_names, allow_pickle=True)
+
+# TODO: There is a missing entry for ImagePredictionLogger, what is it?
 image_callback = ImagePredictionLogger(plot_images, plot_eve, wl_names)
 
 checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_path,
@@ -94,7 +98,7 @@ checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_path,
 trainer = Trainer(
     default_root_dir=checkpoint_path,
     accelerator="gpu",
-    devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
+    devices="auto", # 1 if torch.cuda.is_available() else None,  # limiting got iPython runs
     max_epochs=args.max_epochs,
     callbacks=[image_callback, checkpoint_callback],
     logger=wandb_logger,
