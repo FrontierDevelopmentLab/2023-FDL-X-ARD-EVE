@@ -3,14 +3,10 @@ This module is used to download concurrent Stereo A, B and AIA data.'
 """
 
 import argparse
-from collections import defaultdict
-import glob
 import logging
-import time
 
 from grpc import stream_stream_rpc_method_handler
 
-import dask
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
