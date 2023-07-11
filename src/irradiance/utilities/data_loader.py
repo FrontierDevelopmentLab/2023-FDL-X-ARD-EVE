@@ -10,6 +10,11 @@ import torch
 from data.utils import loadMapStack
 
 
+class ZarrIrradianceDataModule(pl.LightningDataModule):
+    def __init__(self):
+        pass
+
+
 class IrradianceDataModule(pl.LightningDataModule):
 
     def __init__(self, stacks_csv_path, eve_npy_path, wavelengths, batch_size: int = 32, num_workers=None,
