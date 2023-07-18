@@ -76,6 +76,7 @@ class ZarrIrradianceDataset(Dataset):
 
 
 class ZarrIrradianceDataModule(pl.LightningDataModule):
+    
     def __init__(self, path_2_aia, path_2_eve, wavelengths, ions, frequency, batch_size: int = 32, num_workers=None,
                  train_transforms=None, val_transforms=None, val_months=[10,1], test_months=[11,12], holdout_months=None):
         """ Loads paired data samples of AIA EUV images and EVE irradiance measures.

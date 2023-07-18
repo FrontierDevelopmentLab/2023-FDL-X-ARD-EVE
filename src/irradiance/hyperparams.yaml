@@ -15,10 +15,11 @@ config:
  # SUVI: [[0, 1, 2, 3, 4, 5]]
  #  
  aia_wl: [[7]]  # Wavelengths used as input [0:94, 1:131, 2:171, 3:193, 4:211, 5:304, 6:335, 7:1600].
+ ions: [[0]]
  ln_model: [True]  # Use a linear model or not.
  ln_epochs: [100]  # Total number of epochs to perform during the linear model training.
  ln_lr: [1.e-2]  # Learning rate used to train the linear model.
- cnn_model: ['efficientnet_b3']  # CNN architecture to adapt: resnet or efficientnet.
+ cnn_model: ["resnet"]  # CNN architecture to adapt: resnet or efficientnet. #'efficientnet_b3'
  cnn_lr: [1.e-4]  # Learning rate used to train the CNN model.
  cnn_dp: [0.75]  # Dropout rate used to train the CNN model.
  hybrid_loop: [True]  # Use a linear model or not.
