@@ -74,21 +74,21 @@ for parameter_set in combined_parameters:
                                         test_months=run_config['test_months'],
                                         holdout_months=run_config['holdout_months'])
         
-        data_loader = ZarrIrradianceDataModule(path_2_aia = '/mnt/sdomlv2_full/sdomlv2.zarr', 
-                                        path_2_eve = '/mnt/sdomlv2_full/sdomlv2_eve.zarr',
-                                        wavelengths = ['171A','304A','193A'],
-                                        ions = ['Fe IX','Fe VIII'],
-                                        frequency = '30min',
-                                        batch_size = 32, 
-                                        num_workers=None,
-                                        train_transforms=None, 
-                                        val_transforms=None, 
-                                        val_months=[10,1], 
-                                        test_months=[11,12], 
-                                        holdout_months=None)
-        
+        data_loader = ZarrIrradianceDataModule(
+            aia_path='/mnt/sdomlv2_full/sdomlv2.zarr', 
+            eve_path='/mnt/sdomlv2_full/sdomlv2_eve.zarr',
+            wavelengths=['171A','304A','193A'],
+            ions=['Fe IX','Fe VIII'],
+            frequency='30min',
+            batch_size=32, 
+            num_workers=None,
+            train_transforms=None, 
+            val_transforms=None, 
+            val_months=[10,1], 
+            test_months=[11,12], 
+            holdout_months=None
+)
         data_loader.setup()
-
 
 
         # Initalize model
