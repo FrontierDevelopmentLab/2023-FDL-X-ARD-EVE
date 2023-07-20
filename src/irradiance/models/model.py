@@ -123,6 +123,7 @@ class IrradianceModel(LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
 
+
 def unnormalize(y, eve_norm):
     eve_norm = torch.tensor(eve_norm).float()
     norm_mean = eve_norm[0]
@@ -262,14 +263,14 @@ class LinearIrradianceModel(LightningModule):
         self.loss_func = HuberLoss() # consider MSE
 
     def forward(self, x):
-        mean_irradiance = torch.torch.mean(x, dim=(2,3))
-        std_irradiance = torch.torch.std(x, dim=(2,3))
+        mean_irradiance = torch.mean(x, dim=(2,3))
+        std_irradiance = torch.std(x, dim=(2,3))
         x = self.model(torch.cat((mean_irradiance, std_irradiance), dim=1))
         return x
 
     def forward_unnormalize(self, x):
-        mean_irradiance = torch.torch.mean(x, dim=(2,3))
-        std_irradiance = torch.torch.std(x, dim=(2,3))
+        mean_irradiance = torch.mean(x, dim=(2,3))
+        std_irradiance = torch.std(x, dim=(2,3))
         x = self.model(torch.cat((mean_irradiance, std_irradiance), dim=1))
         return unnormalize(x, self.eve_norm)
         
@@ -345,7 +346,9 @@ class LinearIrradianceModel(LightningModule):
 
 class HybridIrradianceModel(LightningModule):
 
-    def __init__(self, d_input, d_output, eve_norm, cnn_model='resnet', ln_model=True, ln_params=None, lr=1e-4, cnn_dp=0.75):
+    def __init__(self, d_input, d_output, eve_norm, cnn_model='resnet', 
+                 ln_model=True, ln_params=None, lr=1e-4, cnn_dp=0.75):
+        
         super().__init__()
         self.eve_norm = eve_norm
         self.n_channels = d_input
@@ -357,9 +360,9 @@ class HybridIrradianceModel(LightningModule):
         self.ln_model = None      
         if ln_model:
             self.ln_model = LinearIrradianceModel(d_input, d_output, eve_norm)
-        if self.ln_params is not None:
-            self.ln_model.weight = torch.nn.Parameter(self.ln_params['weight'])
-            self.ln_model.bias = torch.nn.Parameter(self.ln_params['bias'])
+            if self.ln_params is not None:
+                self.ln_model.weight = torch.nn.Parameter(self.ln_params['weight'])
+                self.ln_model.bias = torch.nn.Parameter(self.ln_params['bias'])
         
         # CNN model
         efficientnets = ['efficientnet_b0', 'efficientnet_b1', 'efficientnet_b2', 'efficientnet_b3',

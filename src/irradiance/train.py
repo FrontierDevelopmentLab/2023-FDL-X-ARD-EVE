@@ -5,7 +5,7 @@ import sys
 import wandb
 
 import logging
-logging.basicConfig(filename="20230713.txt", level=logging.INFO)
+logging.basicConfig(filename="run_log.txt", level=logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
 logger = logging.getLogger(__name__)
 
@@ -30,10 +30,7 @@ with open(args.config_file, 'r') as config_file:
     run_config = json.load(config_file)
 
 wandb_logger = WandbLogger(
-    entity=run_config['wandb']['entity'],
-    project=run_config['wandb']['project'],                            
-    group=run_config['wandb']['group'],
-    job_type=run_config['wandb']['job_type'],
+    project=run_config['wandb']['project'],
     tags=run_config['wandb']['tags'],
     name=run_config['run_name'],
     notes=run_config['wandb']['notes'],
@@ -46,27 +43,25 @@ random_seed = run_config["training_parameters"]['seed']
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
 
-# Left as relic before 2023:
-# Data augmentation 
-# TODO: Incorporate augmentation or not, depending on branch that is being trained
-# if run_config['linear_architecture == 'linear' or run_config['model_architecture == 'complex':
-#     train_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
-# else:
 
-# ToTensorV2() may be needed
-# train_transforms = A.Compose([
-#     A.HorizontalFlip(p=0.5),
-#     A.Rotate(limit=180, p=0.9, value=0, border_mode=1),], 
-#     additional_targets={'y': 'image'}
-# )
+# Data augmentation
+if run_config["training_parameters"]['ln_model']: # or any complex models
+    train_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
+else:
+    train_transforms = A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.Rotate(limit=180, p=0.9, value=0, border_mode=1),
+        ToTensorV2()], 
+        additional_targets={'y': 'image'}
+    )
 
-# val_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
+val_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
 
 # Initialize data loader
 data_loader = ZarrIrradianceDataModule(
     aia_path=run_config["paths"]["aia_path"], 
     eve_path=run_config["paths"]["eve_path"],
-    wavelengths=run_config["sci_parameters"]["wavelengths"],
+    wavelengths=run_config["sci_parameters"]["aia_wavelengths"],
     ions=run_config["sci_parameters"]["ions"],
     frequency=run_config["sci_parameters"]["frequency"],
     batch_size=run_config["training_parameters"]["batch_size"],
@@ -76,31 +71,32 @@ data_loader = ZarrIrradianceDataModule(
     val_months=run_config["training_parameters"]["val_months"], 
     test_months=run_config["training_parameters"]["test_months"], 
     holdout_months=run_config["training_parameters"]["holdout_months"],
-    cache_dir=run_config["paths"]["cache_dir"]
+    cache_dir=run_config["paths"]["cache_directory"],
 )
 
 data_loader.setup()
 
-import sys
-sys.exit()
+eve_norm = np.array(data_loader.normalizations["EVE"]["eve_norm"])
 
 # Initalize model
-model = HybridIrradianceModel(d_input=len(run_config['aia_wl']), 
-                            d_output=14, 
-                            eve_norm=eve_norm, 
-                            cnn_model=run_config['cnn_model'], 
-                            ln_model=run_config['ln_model'],
-                            cnn_dp=run_config['cnn_dp'],
-                            lr=run_config['lr'])
+model = HybridIrradianceModel(
+        d_input=len(run_config["sci_parameters"]["aia_wavelengths"]),
+        d_output=len(run_config["sci_parameters"]["ions"]),
+        eve_norm=eve_norm, 
+        cnn_model=run_config["training_parameters"]['cnn_model'], 
+        ln_model=run_config["training_parameters"]['ln_model'],
+        cnn_dp=run_config["training_parameters"]['cnn_dp'],
+        lr=run_config["training_parameters"]['lr']
+)
 
 
 # Plot callback
-total_n_valid = len(data_loader.valid_ds)
-plot_data = [data_loader.valid_ds[i] for i in range(0, total_n_valid, total_n_valid // 4)]
-plot_images = torch.stack([image for image, eve in plot_data])
-plot_eve = torch.stack([eve for image, eve in plot_data])
-eve_wl = np.load(run_config['eve_wl'], allow_pickle=True)
-image_callback = ImagePredictionLogger(plot_images, plot_eve, eve_wl, run_config['aia_wl'])
+# total_n_valid = len(data_loader.valid_ds)
+# plot_data = [data_loader.valid_ds[i] for i in range(0, total_n_valid, total_n_valid // 4)]
+# plot_images = torch.stack([image for image, eve in plot_data])
+# plot_eve = torch.stack([eve for image, eve in plot_data])
+# eve_wl = np.load(run_config['eve_wl'], allow_pickle=True)
+# image_callback = ImagePredictionLogger(plot_images, plot_eve, eve_wl, run_config['aia_wl'])
 
 # Checkpoint callback
 checkpoint_path = os.path.join(config_data['paths']['checkpoint_path'], str(seed))

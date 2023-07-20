@@ -15,34 +15,30 @@ from tqdm import tqdm
 
 class ZarrIrradianceDataset(Dataset):
 
-    def __init__(self, aligndata, aia_zarr_path, eve_zarr_path, wavelengths, ions, freq, months, transformations=None, use_normalizations=False):
+    def __init__(self, aligndata, aia_data, eve_data, wavelengths, ions, freq, months, transformations=None, normalizations=None):
         """
-        aia_zarr_path --> path: path to zarr aia data
-        eve_zarr_path --> path: path to zarr eve data
+        aia_path --> path: path to zarr aia data
+        eve_path --> path: path to zarr eve data
         wavelengths   --> list: list of channels for aia
         ions          --> list: list of ions for eve
         freq          --> str: cadence used for rounding time series
         transformation: to be applied to aia in theory, but can stay None here
-        normalizations: to be applied to transform input data for training / inference
+        use_normalizations: to use or not use normalizations, e.g. if this is test data, we don't want to use normalizations
         """
         
         self.aligndata = aligndata
-        self.aia_zarr_path = aia_zarr_path
-        self.eve_zarr_path = eve_zarr_path
+        self.aia_data = aia_data
+        self.eve_data = eve_data
         self.wavelengths = wavelengths
+        self.wavelengths.sort()
         self.ions = ions
+        self.ions.sort()
         self.cadence = freq
         self.months = months
         self.transformations = transformations
-
-        self.normalizations = None
-        if use_normalizations:
-            self.normalizations = self.__calc_normalizations()
+        self.normalizations = normalizations
 
         # get data from path
-        self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_zarr_path))
-        self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_zarr_path))
-
         self.aligndata = self.aligndata.loc[self.aligndata.index.month.isin(self.months), :]
         
 
@@ -64,104 +60,29 @@ class ZarrIrradianceDataset(Dataset):
             idx_wavelength = idx_row_element[f"idx_{wavelength}"]
             year = str(idx_row_element.name.year)
             aia_image_dict[wavelength] = self.aia_data[year][wavelength][idx_wavelength, :, :]
-            aia_image_dict[wavelength] -= self.normalizations["AIA"][wavelength]["mean"]
-            # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["max"]
+            if self.normalizations is not None:
+                aia_image_dict[wavelength] -= self.normalizations["AIA"][wavelength]["mean"]
+                # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["max"]
 
         aia_image =  np.array(list(aia_image_dict.values()))
         aia_image = torch.from_numpy(aia_image)
         
         return aia_image
     
-
+    
     def get_eve(self, idx):
         eve_ion_dict = {}
         for ion in self.ions:
             idx_eve = self.aligndata.iloc[idx]["idx_eve"]
             eve_ion_dict[ion] = self.eve_data['MEGS-A'][ion][idx_eve]
-            eve_ion_dict[ion] -= self.normalizations["EVE"][ion]["mean"]
-            eve_ion_dict[ion] /= self.normalizations["EVE"][ion]["std"]
+            if self.use_normalizations:
+                eve_ion_dict[ion] -= self.normalizations["EVE"][ion]["mean"]
+                eve_ion_dict[ion] /= self.normalizations["EVE"][ion]["std"]
 
         eve_data = np.array(list(eve_ion_dict.values()))
         eve_data = torch.from_numpy(eve_data)
 
         return eve_data
-
-
-    def __calc_normalizations(self):
-
-        if Path(self.normalizations_cache_filename).exists():
-            with open(self.normalizations_cache_filename, "r") as json_file:
-                return json.load(json_file)
-
-        normalizations = {}
-
-        # EVE Normalization
-        normalizations["EVE"] = {}
-        for ion in self.ions:
-            # Note that selecting on idx self.aligndata['idx_eve'] removes negative values from EVE data.
-            channel_data = self.eve_data['MEGS-A'][ion][self.aligndata['idx_eve']][:]
-            normalizations["EVE"][ion] = {}
-            normalizations["EVE"][ion]["count"] = channel_data.shape[0]
-            normalizations["EVE"][ion]["sum"] = channel_data.sum()
-            normalizations["EVE"][ion]["mean"] = channel_data.mean()
-            normalizations["EVE"][ion]["std"] = channel_data.std()
-            normalizations["EVE"][ion]["min"] = channel_data.min()
-            normalizations["EVE"][ion]["max"] = channel_data.max()
-    
-        # AIA Normalization
-        normalizations["AIA"] = {}
-        for wavelength in tqdm(self.wavelengths):
-            normalizations["AIA"][wavelength] = {}
-            for year in self.aia_data.keys():
-                normalizations["AIA"][wavelength] = {}
-                normalizations["AIA"][wavelength][year] = {}
-                
-                idx_channel = self.aligndata[f'idx_{wavelength}']
-                idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
-                wavelength_data = self.aia_data[year][wavelength][idx_channel]
-
-                normalizations["AIA"][wavelength][year]["sum"] = 0.
-                normalizations["AIA"][wavelength][year]["count"] = 0
-                normalizations["AIA"][wavelength][year]["min"] = float("inf")
-                normalizations["AIA"][wavelength][year]["max"] = float("-inf")
-
-                # Because AIA data is too big to fit in memory, we need to calculate the normalization in chunks.
-                num_chunks = wavelength_data.shape[0] // self.zarr_chunk_size + 1
-
-                for chunk_num in range(num_chunks):
-                    idx_left = chunk_num * self.zarr_chunk_size
-                    idx_right = min((chunk_num+1) * self.zarr_chunk_size, wavelength_data.shape[0])
-
-                    chunk = wavelength_data[idx_left:idx_right, :, :].flatten()
-
-                    normalizations["AIA"][wavelength][year]["count"] += chunk.shape[0]
-                    normalizations["AIA"][wavelength][year]["sum"] += chunk.sum()
-                    normalizations["AIA"][wavelength][year]["min"] = min(normalizations["AIA"][wavelength][year]["min"], chunk.min())
-                    normalizations["AIA"][wavelength][year]["max"] = max(normalizations["AIA"][wavelength][year]["max"], chunk.max())
-
-
-        overall_normalizations = {wavelength: {} for wavelength in self.wavelengths}
-        for wavelength in self.wavelengths:
-            overall_wavelength_normalization = {"sum": 0., "count": 0, "max": float("-inf"), "mean": 0.}
-            for year in self.aia_data.keys():
-                idx_channel = self.aligndata[f'idx_{wavelength}']
-                idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
-
-                overall_wavelength_normalization["count"] += normalizations["AIA"][wavelength][year]["count"]
-                overall_wavelength_normalization["sum"] += normalizations["AIA"][wavelength][year]["sum"]
-                overall_wavelength_normalization["max"] = max(overall_wavelength_normalization["max"], normalizations["AIA"][wavelength][year]["max"])
-            
-            overall_wavelength_normalization["mean"] = overall_wavelength_normalization["sum"] / overall_wavelength_normalization["count"]
-            overall_normalizations[wavelength] = overall_wavelength_normalization
-
-        normalizations["AIA"] = overall_normalizations
-
-        with open(self.normalizations_cache_filename, "w") as json_file:
-            save_json = str(normalizations)
-            save_json = save_json.replace("'", '"')
-            json_file.write(save_json)
-
-        return normalizations
 
 
 class ZarrIrradianceDataModule(pl.LightningDataModule):
@@ -178,21 +99,8 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
     val_transforms: transformations to be applied on the validation set
     val_months: 
     """
-    def __init__(
-            self, 
-            aia_path, 
-            eve_path, 
-            wavelengths, 
-            ions, frequency, 
-            batch_size: int = 32, 
-            num_workers=None,
-            train_transforms=None, 
-            val_transforms=None, 
-            val_months=[10,1], 
-            test_months=[11,12], 
-            holdout_months=None,
-            cache_dir=""
-        ):
+    def __init__(self, aia_path, eve_path, wavelengths, ions, frequency, batch_size: int = 32, num_workers=None, train_transforms=None, 
+                 val_transforms=None, val_months=[10,1], test_months=[11,12],  holdout_months=None, cache_dir=""):
 
         super().__init__()
         self.num_workers = num_workers if num_workers is not None else os.cpu_count() // 2
@@ -209,10 +117,12 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.val_months = val_months
         self.test_months = test_months
         self.holdout_months = holdout_months
+        self.cache_dir = cache_dir
 
-        # Chunk size depends on ram available. 500 is a good number for 16GB of ram and 30min cadence.
-        # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
-        self.zarr_chunk_size = 300
+        self.train_months = [i for i in range(1,13) if i not in self.test_months + self.val_months]
+
+        self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_path))
+        self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
 
         # Cache filenames
         wavelength_id = "_".join(self.wavelengths)
@@ -222,13 +132,15 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             self.cache_id += "_small"
 
         self.index_cache_filename = f"{cache_dir}/aligndata_{self.cache_id}.csv"
+        self.normalizations_cache_filename = f"{cache_dir}/normalizations_{self.cache_id}.json"
 
-        self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_path))
-        self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
+        # Chunk size depends on ram available. 500 is a good number for 16GB of ram and 30min cadence.
+        # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
+        self.zarr_chunk_size = 200
 
         # Temporal alignment of aia and eve data
         self.aligndata = self.__aligntime()
-
+        self.normalizations = self.__calc_normalizations()
 
 
     def __aligntime(self):
@@ -278,20 +190,104 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         join_series.sort_index(inplace=True)
         join_series.to_csv(self.index_cache_filename)
-        
+
         return join_series
 
 
+    def __calc_normalizations(self):
+
+        if Path(self.normalizations_cache_filename).exists():
+            with open(self.normalizations_cache_filename, "r") as json_file:
+                return json.load(json_file)
+
+        normalizations = {}
+        normalizations_align = self.aligndata.copy()
+        normalizations_align = normalizations_align[normalizations_align.index.month.isin(self.train_months)]
+
+        # EVE Normalization
+        normalizations["EVE"] = {}
+        for ion in self.ions:
+            # Note that selecting on idx normalizations_align['idx_eve'] removes negative values from EVE data.
+            channel_data = self.eve_data['MEGS-A'][ion][normalizations_align['idx_eve']][:]
+            normalizations["EVE"][ion] = {}
+            normalizations["EVE"][ion]["count"] = channel_data.shape[0]
+            normalizations["EVE"][ion]["sum"] = channel_data.sum()
+            normalizations["EVE"][ion]["mean"] = channel_data.mean()
+            normalizations["EVE"][ion]["std"] = channel_data.std()
+            normalizations["EVE"][ion]["min"] = channel_data.min()
+            normalizations["EVE"][ion]["max"] = channel_data.max()
+    
+        # AIA Normalization
+        normalizations["AIA"] = {}
+        for wavelength in tqdm(self.wavelengths):
+            normalizations["AIA"][wavelength] = {}
+            for year in self.aia_data.keys():
+                normalizations["AIA"][wavelength] = {}
+                normalizations["AIA"][wavelength][year] = {}
+                
+                idx_channel = normalizations_align[f'idx_{wavelength}']
+                idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
+                wavelength_data = self.aia_data[year][wavelength][idx_channel]
+
+                normalizations["AIA"][wavelength][year]["sum"] = 0.
+                normalizations["AIA"][wavelength][year]["count"] = 0
+                normalizations["AIA"][wavelength][year]["min"] = float("inf")
+                normalizations["AIA"][wavelength][year]["max"] = float("-inf")
+
+                # Because AIA data is too big to fit in memory, we need to calculate the normalization in chunks.
+                num_chunks = wavelength_data.shape[0] // self.zarr_chunk_size + 1
+
+                for chunk_num in range(num_chunks):
+                    idx_left = chunk_num * self.zarr_chunk_size
+                    idx_right = min((chunk_num+1) * self.zarr_chunk_size, wavelength_data.shape[0])
+
+                    chunk = wavelength_data[idx_left:idx_right, :, :].flatten()
+
+                    normalizations["AIA"][wavelength][year]["count"] += chunk.shape[0]
+                    normalizations["AIA"][wavelength][year]["sum"] += chunk.sum()
+                    normalizations["AIA"][wavelength][year]["min"] = min(normalizations["AIA"][wavelength][year]["min"], chunk.min())
+                    normalizations["AIA"][wavelength][year]["max"] = max(normalizations["AIA"][wavelength][year]["max"], chunk.max())
+
+
+        overall_normalizations = {wavelength: {} for wavelength in self.wavelengths}
+        for wavelength in self.wavelengths:
+            overall_wavelength_normalization = {"sum": 0., "count": 0, "max": float("-inf"), "mean": 0.}
+            for year in self.aia_data.keys():
+                idx_channel = normalizations_align[f'idx_{wavelength}']
+                idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
+
+                overall_wavelength_normalization["count"] += normalizations["AIA"][wavelength][year]["count"]
+                overall_wavelength_normalization["sum"] += normalizations["AIA"][wavelength][year]["sum"]
+                overall_wavelength_normalization["max"] = max(overall_wavelength_normalization["max"], normalizations["AIA"][wavelength][year]["max"])
+            
+            overall_wavelength_normalization["mean"] = overall_wavelength_normalization["sum"] / overall_wavelength_normalization["count"]
+            overall_normalizations[wavelength] = overall_wavelength_normalization
+
+        normalizations["AIA"] = overall_normalizations
+
+        normalizations["EVE"]["eve_norm"] = [
+            [normalizations["EVE"][key]["mean"] for key in normalizations["EVE"].keys()],
+            [normalizations["EVE"][key]["std"] for key in normalizations["EVE"].keys()]
+        ]
+
+        with open(self.normalizations_cache_filename, "w") as json_file:
+            save_json = str(normalizations)
+            save_json = save_json.replace("'", '"')
+            json_file.write(save_json)
+
+        return normalizations
+
 
     def setup(self):
-        self.train_months = [i for i in range(1,13) if i not in self.test_months + self.val_months]
 
-        self.train_ds = ZarrIrradianceDataset(self.aligndata, self.aia_path, self.eve_path, self.wavelengths, 
-                                              self.ions, self.cadence, self.train_months, self.train_transforms, self.normalizations)
-        
-        self.test_ds = ZarrIrradianceDataset(self.aligndata, self.aia_path, self.eve_path, self.wavelengths, 
-                                             self.ions, self.cadence, self.test_months, self.normalizations)
-        
-        self.valid_ds = ZarrIrradianceDataset(self.aligndata, self.aia_path, self.eve_path, self.wavelengths, 
-                                              self.ions, self.cadence, self.val_months, self.val_transforms, self.normalizations)
+        self.train_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
+                                              self.ions, self.cadence, self.train_months, self.train_transforms,
+                                              normalizations=self.normalizations)
 
+        self.valid_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
+                                              self.ions, self.cadence, self.val_months, self.val_transforms, 
+                                              normalizations=self.normalizations)
+        
+        self.test_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
+                                             self.ions, self.cadence, self.test_months, normalizations=self.normalizations)
+        

@@ -2,7 +2,6 @@
     "run_name": "first_test",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"entity": "team-ard",
 		"tags": ["test", "first"],
 		"notes": "First test of the eve pipeline"
 	},
@@ -14,7 +13,7 @@
 		"cache_directory": "/home/richardagalvez/2023-FDL-X-ARD-EVE/src/cache"
 	},
 	"sci_parameters": {
-		"aia_wl": ["171A", "304A", "193A"],
+		"aia_wavelengths": ["171A", "304A", "193A"],
 		"ions": ["Fe IX", "Fe VIII"],
 		"frequency": "30min"
 	},
