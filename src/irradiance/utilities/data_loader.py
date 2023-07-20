@@ -10,6 +10,7 @@ import torch
 from torch.utils.data import Dataset
 import pytorch_lightning as pl
 import json
+from tqdm import tqdm
 
 
 class ZarrIrradianceDataset(Dataset):
@@ -59,9 +60,8 @@ class ZarrIrradianceDataset(Dataset):
         for wavelength in self.wavelengths:
             idx_row_element = self.aligndata.iloc[idx]
             idx_wavelength = idx_row_element[f"idx_{wavelength}"]
-            year = idx_row_element.name.year
-            year = idx_mapped.index.year[0]
-            aia_image_dict[wavelength] = self.aia_data[year][wavelength][idx_mapped, :, :]
+            year = str(idx_row_element.name.year)
+            aia_image_dict[wavelength] = self.aia_data[year][wavelength][idx_wavelength, :, :]
             aia_image_dict[wavelength] -= self.normalizations["AIA"][wavelength][year]["mean"]
             # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["2010"]["max"]
 
@@ -126,7 +126,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         # Chunk size depends on ram available. 500 is a good number for 16GB of ram and 30min cadence.
         # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
-        self.zarr_chunk_size = 500 
+        self.zarr_chunk_size = 300
 
         # Cache filenames
         wavelength_id = "_".join(self.wavelengths)
@@ -221,7 +221,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
     
         # AIA Normalization
         normalizations["AIA"] = {}
-        for wavelength in self.wavelengths:
+        for wavelength in tqdm(self.wavelengths):
             normalizations["AIA"][wavelength] = {}
             for year in self.aia_data.keys():
                 normalizations["AIA"][wavelength] = {}
@@ -250,6 +250,22 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                     normalizations["AIA"][wavelength][year]["min"] = min(normalizations["AIA"][wavelength][year]["min"], chunk.min())
                     normalizations["AIA"][wavelength][year]["max"] = max(normalizations["AIA"][wavelength][year]["max"], chunk.max())
 
+
+        overall_normalizations = {wavelength: {} for wavelength in self.wavelengths}
+        for wavelength in self.wavelengths:
+            overall_wavelength_normalization = {"sum": 0., "count": 0, "max": float("-inf"), "mean": 0.}
+            for year in self.aia_data.keys():
+                idx_channel = self.aligndata[f'idx_{wavelength}']
+                idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
+
+                overall_wavelength_normalization["count"] += normalizations["AIA"][wavelength][year]["count"]
+                overall_wavelength_normalization["sum"] += normalizations["AIA"][wavelength][year]["sum"]
+                overall_wavelength_normalization["max"] = max(overall_wavelength_normalization["max"], normalizations["AIA"][wavelength][year]["max"])
+            
+            overall_wavelength_normalization[wavelength]["mean"] = overall_wavelength_normalization["sum"] / overall_wavelength_normalization["count"]
+            overall_normalizations[wavelength] = overall_wavelength_normalization
+
+        normalizations["AIA"] = overall_normalizations
 
         with open(self.normalizations_cache_filename, "w") as json_file:
             save_json = str(normalizations)
