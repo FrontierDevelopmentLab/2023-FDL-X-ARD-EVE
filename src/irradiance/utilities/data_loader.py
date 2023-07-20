@@ -262,7 +262,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                 overall_wavelength_normalization["sum"] += normalizations["AIA"][wavelength][year]["sum"]
                 overall_wavelength_normalization["max"] = max(overall_wavelength_normalization["max"], normalizations["AIA"][wavelength][year]["max"])
             
-            overall_wavelength_normalization[wavelength]["mean"] = overall_wavelength_normalization["sum"] / overall_wavelength_normalization["count"]
+            overall_wavelength_normalization["mean"] = overall_wavelength_normalization["sum"] / overall_wavelength_normalization["count"]
             overall_normalizations[wavelength] = overall_wavelength_normalization
 
         normalizations["AIA"] = overall_normalizations
