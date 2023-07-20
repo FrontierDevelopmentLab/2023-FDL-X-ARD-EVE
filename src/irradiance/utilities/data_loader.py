@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 class ZarrIrradianceDataset(Dataset):
 
-    def __init__(self, aligndata, aia_zarr_path, eve_zarr_path, wavelengths, ions, freq, months, transformations=None, normalizations=None):
+    def __init__(self, aligndata, aia_zarr_path, eve_zarr_path, wavelengths, ions, freq, months, transformations=None, use_normalizations=False):
         """
         aia_zarr_path --> path: path to zarr aia data
         eve_zarr_path --> path: path to zarr eve data
@@ -34,13 +34,16 @@ class ZarrIrradianceDataset(Dataset):
         self.cadence = freq
         self.months = months
         self.transformations = transformations
-        self.normalizations = normalizations
+
+        self.normalizations = None
+        if use_normalizations:
+            self.normalizations = self.__calc_normalizations()
 
         # get data from path
         self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_zarr_path))
         self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_zarr_path))
 
-        self.aligndata = self.aligndata.loc[self.aligndata.index.month.isin(self.months),:]
+        self.aligndata = self.aligndata.loc[self.aligndata.index.month.isin(self.months), :]
         
 
     def __len__(self):
@@ -55,150 +58,36 @@ class ZarrIrradianceDataset(Dataset):
 
 
     def get_aia_image(self, idx):
-
         aia_image_dict = {}
         for wavelength in self.wavelengths:
             idx_row_element = self.aligndata.iloc[idx]
             idx_wavelength = idx_row_element[f"idx_{wavelength}"]
             year = str(idx_row_element.name.year)
             aia_image_dict[wavelength] = self.aia_data[year][wavelength][idx_wavelength, :, :]
-            aia_image_dict[wavelength] -= self.normalizations["AIA"][wavelength][year]["mean"]
-            # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["2010"]["max"]
+            aia_image_dict[wavelength] -= self.normalizations["AIA"][wavelength]["mean"]
+            # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["max"]
 
-        aia_image = torch.stack(aia_image_dict.values())
+        aia_image =  np.array(list(aia_image_dict.values()))
+        aia_image = torch.from_numpy(aia_image)
+        
         return aia_image
     
 
     def get_eve(self, idx):
         eve_ion_dict = {}
         for ion in self.ions:
-            idx_mapped = self.aligndata['index_eve'][idx]
-            eve_ion_dict[ion] = self.eve_data['MEGS-A'][ion][idx_mapped]
+            idx_eve = self.aligndata.iloc[idx]["idx_eve"]
+            eve_ion_dict[ion] = self.eve_data['MEGS-A'][ion][idx_eve]
             eve_ion_dict[ion] -= self.normalizations["EVE"][ion]["mean"]
             eve_ion_dict[ion] /= self.normalizations["EVE"][ion]["std"]
-        return eve_ion_dict
+
+        eve_data = np.array(list(eve_ion_dict.values()))
+        eve_data = torch.from_numpy(eve_data)
+
+        return eve_data
 
 
-class ZarrIrradianceDataModule(pl.LightningDataModule):
-    """ Loads paired data samples of AIA EUV images and EVE irradiance measures.
-
-    Note: Input data needs to be paired.
-    Parameters
-    ----------
-    aia_path: path to aia zarr file
-    eve_path: path to the EVE zarr data file
-    batch_size: batch size (default is 32)
-    num_workers: number of workers (needed for the training)
-    train_transforms: transformations to be applied on the training set
-    val_transforms: transformations to be applied on the validation set
-    val_months: 
-    """
-    def __init__(
-            self, 
-            aia_path, 
-            eve_path, 
-            wavelengths, 
-            ions, frequency, 
-            batch_size: int = 32, 
-            num_workers=None,
-            train_transforms=None, 
-            val_transforms=None, 
-            val_months=[10,1], 
-            test_months=[11,12], 
-            holdout_months=None
-        ):
-
-        super().__init__()
-        self.num_workers = num_workers if num_workers is not None else os.cpu_count() // 2
-        self.aia_path = aia_path
-        self.eve_path = eve_path
-        self.batch_size = batch_size
-        self.train_transforms = train_transforms
-        self.val_transforms = val_transforms
-        self.wavelengths = wavelengths
-        self.wavelengths.sort()
-        self.ions = ions
-        self.ions.sort()
-        self.cadence = frequency
-        self.val_months = val_months
-        self.test_months = test_months
-        self.holdout_months = holdout_months
-
-        # Chunk size depends on ram available. 500 is a good number for 16GB of ram and 30min cadence.
-        # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
-        self.zarr_chunk_size = 300
-
-        # Cache filenames
-        wavelength_id = "_".join(self.wavelengths)
-        ions_id = "_".join(ions).replace(" ", "_")
-        self.cache_id = f"{wavelength_id}_{ions_id}_{self.cadence}"
-        if "small" in self.aia_path: 
-            self.cache_id += "_small"
-
-        self.index_cache_filename = f"aligndata_{self.cache_id}.csv"
-        self.normalizations_cache_filename = f"normalizations_{self.cache_id}.json"
-
-        self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_path))
-        self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
-
-        # Temporal alignment of aia and eve data
-        self.aligndata = self.__aligntime__()
-
-        # Calculate normalization of the data
-        self.normalizations = self.__calc_normalizations__()
-
-
-    def __aligntime__(self):
-        """
-        This function extracts the common indexes across aia and eve datasets, considering potential missing values.
-        """
-
-        if Path(self.index_cache_filename).exists():
-            aligndata = pd.read_csv(self.index_cache_filename)
-            aligndata["Time"] = pd.to_datetime(aligndata["Time"])
-            aligndata.set_index("Time", inplace=True)
-            return aligndata
-
-
-        join_series = pd.DataFrame()
-        for wavelength in self.wavelengths:
-            df_t_aia = pd.DataFrame()
-
-            for key in self.aia_data.keys():
-                aia_channel = self.aia_data[key][wavelength]
-
-                # Get observation time
-                t_obs_aia_channel = aia_channel.attrs['T_OBS']
-
-                df_tmp_aia = pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f"idx_{wavelength}": np.arange(0, len(t_obs_aia_channel))})
-                df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index=True)
-
-            # Enforcing same datetime format
-            df_t_aia['Time'] = pd.to_datetime(df_t_aia['Time'], format='mixed').dt.tz_localize(None).dt.round(self.cadence).sort_values()
-            df_t_obs_aia = df_t_aia.drop_duplicates(subset='Time', keep='first').set_index('Time')
-
-            if wavelength == self.wavelengths[0]:
-                join_series = df_t_obs_aia
-            else:
-                join_series = join_series.join(df_t_obs_aia, how='inner')
-
-
-        df_t_eve = pd.DataFrame({'Time': pd.to_datetime(self.eve_data['MEGS-A']['Time'][:]), 'idx_eve': np.arange(0, len(self.eve_data['MEGS-A']['Time']))})
-        df_t_eve['Time'] = pd.to_datetime(df_t_eve['Time']).dt.round(self.cadence)
-        df_t_obs_eve = df_t_eve.drop_duplicates(subset='Time', keep='first').set_index('Time')
-        join_series = join_series.join(df_t_obs_eve, how='inner')
-
-        # remove missing eve data (missing values are labeled with negative values)
-        for ion in self.ions:
-            ion_data = self.eve_data['MEGS-A'][ion][:]
-            join_series = join_series.loc[ion_data[join_series['idx_eve']] > 0, :]
-
-        join_series.sort_index(inplace=True)
-        join_series.to_csv(self.index_cache_filename)
-        return join_series
-
-
-    def __calc_normalizations__(self):
+    def __calc_normalizations(self):
 
         if Path(self.normalizations_cache_filename).exists():
             with open(self.normalizations_cache_filename, "r") as json_file:
@@ -275,6 +164,125 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         return normalizations
 
 
+class ZarrIrradianceDataModule(pl.LightningDataModule):
+    """ Loads paired data samples of AIA EUV images and EVE irradiance measures.
+
+    Note: Input data needs to be paired.
+    Parameters
+    ----------
+    aia_path: path to aia zarr file
+    eve_path: path to the EVE zarr data file
+    batch_size: batch size (default is 32)
+    num_workers: number of workers (needed for the training)
+    train_transforms: transformations to be applied on the training set
+    val_transforms: transformations to be applied on the validation set
+    val_months: 
+    """
+    def __init__(
+            self, 
+            aia_path, 
+            eve_path, 
+            wavelengths, 
+            ions, frequency, 
+            batch_size: int = 32, 
+            num_workers=None,
+            train_transforms=None, 
+            val_transforms=None, 
+            val_months=[10,1], 
+            test_months=[11,12], 
+            holdout_months=None,
+            cache_dir=""
+        ):
+
+        super().__init__()
+        self.num_workers = num_workers if num_workers is not None else os.cpu_count() // 2
+        self.aia_path = aia_path
+        self.eve_path = eve_path
+        self.batch_size = batch_size
+        self.train_transforms = train_transforms
+        self.val_transforms = val_transforms
+        self.wavelengths = wavelengths
+        self.wavelengths.sort()
+        self.ions = ions
+        self.ions.sort()
+        self.cadence = frequency
+        self.val_months = val_months
+        self.test_months = test_months
+        self.holdout_months = holdout_months
+
+        # Chunk size depends on ram available. 500 is a good number for 16GB of ram and 30min cadence.
+        # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
+        self.zarr_chunk_size = 300
+
+        # Cache filenames
+        wavelength_id = "_".join(self.wavelengths)
+        ions_id = "_".join(ions).replace(" ", "_")
+        self.cache_id = f"{wavelength_id}_{ions_id}_{self.cadence}"
+        if "small" in self.aia_path: 
+            self.cache_id += "_small"
+
+        self.index_cache_filename = f"{cache_dir}/aligndata_{self.cache_id}.csv"
+
+        self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_path))
+        self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
+
+        # Temporal alignment of aia and eve data
+        self.aligndata = self.__aligntime()
+
+
+
+    def __aligntime(self):
+        """
+        This function extracts the common indexes across aia and eve datasets, considering potential missing values.
+        """
+
+        if Path(self.index_cache_filename).exists():
+            aligndata = pd.read_csv(self.index_cache_filename)
+            aligndata["Time"] = pd.to_datetime(aligndata["Time"])
+            aligndata.set_index("Time", inplace=True)
+            return aligndata
+
+
+        join_series = pd.DataFrame()
+        for wavelength in self.wavelengths:
+            df_t_aia = pd.DataFrame()
+
+            for key in self.aia_data.keys():
+                aia_channel = self.aia_data[key][wavelength]
+
+                # Get observation time
+                t_obs_aia_channel = aia_channel.attrs['T_OBS']
+
+                df_tmp_aia = pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f"idx_{wavelength}": np.arange(0, len(t_obs_aia_channel))})
+                df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index=True)
+
+            # Enforcing same datetime format
+            df_t_aia['Time'] = pd.to_datetime(df_t_aia['Time'], format='mixed').dt.tz_localize(None).dt.round(self.cadence).sort_values()
+            df_t_obs_aia = df_t_aia.drop_duplicates(subset='Time', keep='first').set_index('Time')
+
+            if wavelength == self.wavelengths[0]:
+                join_series = df_t_obs_aia
+            else:
+                join_series = join_series.join(df_t_obs_aia, how='inner')
+
+
+        df_t_eve = pd.DataFrame({'Time': pd.to_datetime(self.eve_data['MEGS-A']['Time'][:]), 'idx_eve': np.arange(0, len(self.eve_data['MEGS-A']['Time']))})
+        df_t_eve['Time'] = pd.to_datetime(df_t_eve['Time']).dt.round(self.cadence)
+        df_t_obs_eve = df_t_eve.drop_duplicates(subset='Time', keep='first').set_index('Time')
+        join_series = join_series.join(df_t_obs_eve, how='inner')
+
+        # remove missing eve data (missing values are labeled with negative values)
+        for ion in self.ions:
+            ion_data = self.eve_data['MEGS-A'][ion][:]
+            join_series = join_series.loc[ion_data[join_series['idx_eve']] > 0, :]
+
+        join_series.sort_index(inplace=True)
+        join_series.to_csv(self.index_cache_filename)
+        
+        return join_series
+
+
+
     def setup(self):
         self.train_months = [i for i in range(1,13) if i not in self.test_months + self.val_months]
 
@@ -287,20 +295,3 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.valid_ds = ZarrIrradianceDataset(self.aligndata, self.aia_path, self.eve_path, self.wavelengths, 
                                               self.ions, self.cadence, self.val_months, self.val_transforms, self.normalizations)
 
-
-data_loader = ZarrIrradianceDataModule(
-    aia_path='/mnt/sdomlv2_small/sdomlv2_small.zarr', 
-    eve_path='/mnt/sdomlv2_small/sdomlv2_eve.zarr',
-    wavelengths=['171A','304A','193A'],
-    ions=['Fe IX','Fe VIII'],
-    frequency='30min',
-    batch_size=32, 
-    num_workers=None,
-    train_transforms=None, 
-    val_transforms=None, 
-    val_months=[10,1], 
-    test_months=[11,12], 
-    holdout_months=None
-)
-
-data_loader.setup()

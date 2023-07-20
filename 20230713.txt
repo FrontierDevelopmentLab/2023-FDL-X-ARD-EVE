@@ -1,0 +1,10 @@
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpff7mzfna
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpff7mzfna/_remote_module_non_scriptable.py
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpxtvslo4l
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpxtvslo4l/_remote_module_non_scriptable.py
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpit80wffy
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpit80wffy/_remote_module_non_scriptable.py
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmpte5bl7wl
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmpte5bl7wl/_remote_module_non_scriptable.py
+INFO:torch.distributed.nn.jit.instantiator:Created a temporary directory at /tmp/tmprfhmvdge
+INFO:torch.distributed.nn.jit.instantiator:Writing /tmp/tmprfhmvdge/_remote_module_non_scriptable.py
