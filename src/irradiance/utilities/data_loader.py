@@ -134,9 +134,8 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.index_cache_filename = f"{cache_dir}/aligndata_{self.cache_id}.csv"
         self.normalizations_cache_filename = f"{cache_dir}/normalizations_{self.cache_id}.json"
 
-        # Chunk size depends on ram available. 50 is a good number for 16GB of ram and 30min cadence.
-        # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
-        self.zarr_chunk_size = 2
+        # Chunk size depends on ram available. Divide your total ram available by 20
+        self.processing_chunk_size = "1 GB"
 
         # Temporal alignment of aia and eve data
         self.aligndata = self.__aligntime()        
@@ -249,7 +248,10 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             normalizations["EVE"][ion]["min"] = channel_data.min()
             normalizations["EVE"][ion]["max"] = channel_data.max()
     
-        import time
+        normalizations["EVE"]["eve_norm"] = [
+            [normalizations["EVE"][key]["mean"] for key in normalizations["EVE"].keys()],
+            [normalizations["EVE"][key]["std"] for key in normalizations["EVE"].keys()]
+        ]
         
         # AIA Normalization
         normalizations["AIA"] = {}
@@ -260,26 +262,22 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             normalizations["AIA"][wavelength]["max"] = float("-inf")
 
             for year in self.aia_data.keys():
-                print(year, wavelength)
-                
+                print(f"year: {year}, wavelength: {wavelength}")
                 idx_channel = normalizations_align[f'idx_{wavelength}']
                 idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
 
-                print("I get here before I die")
-                wavelength_data = da.from_array(self.aia_data[year][wavelength])
-                print("I get here before I die 2")
+                wavelength_data = da.from_array(self.aia_data[year][wavelength],  chunks=self.processing_chunk_size)
                 wavelength_data = wavelength_data[idx_channel]
-                print("I get here before I die 3")
-                print(wavelength_data.head())
 
                 normalizations["AIA"][wavelength]["sum"] += wavelength_data.sum().compute()
                 normalizations["AIA"][wavelength]["count"] += wavelength_data.shape[0]
-                normalizations["AIA"][wavelength]["max"] = max(wavelength_data.max().compute(), normalizations["AIA"][wavelength]["max"])
+                try: 
+                    normalizations["AIA"][wavelength]["max"] = max(wavelength_data.max().compute(), normalizations["AIA"][wavelength]["max"])
+                except Exception as error:
+                    print(f"Error for {year} {wavelength}: {error}")
+                    pass
 
-        normalizations["EVE"]["eve_norm"] = [
-            [normalizations["EVE"][key]["mean"] for key in normalizations["EVE"].keys()],
-            [normalizations["EVE"][key]["std"] for key in normalizations["EVE"].keys()]
-        ]
+            normalizations["AIA"][wavelength]["mean"] = normalizations["AIA"][wavelength]["sum"] / normalizations["AIA"][wavelength]["count"]
 
         with open(self.normalizations_cache_filename, "w") as json_file:
             save_json = str(normalizations)
