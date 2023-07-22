@@ -60,7 +60,7 @@ class ZarrIrradianceDataset(Dataset):
             idx_wavelength = idx_row_element[f"idx_{wavelength}"]
             year = str(idx_row_element.name.year)
             aia_image_dict[wavelength] = self.aia_data[year][wavelength][idx_wavelength, :, :]
-            if self.normalizations is not None:
+            if self.normalizations:
                 aia_image_dict[wavelength] -= self.normalizations["AIA"][wavelength]["mean"]
                 # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["max"]
 
@@ -75,7 +75,7 @@ class ZarrIrradianceDataset(Dataset):
         for ion in self.ions:
             idx_eve = self.aligndata.iloc[idx]["idx_eve"]
             eve_ion_dict[ion] = self.eve_data['MEGS-A'][ion][idx_eve]
-            if self.use_normalizations:
+            if self.normalizations:
                 eve_ion_dict[ion] -= self.normalizations["EVE"][ion]["mean"]
                 eve_ion_dict[ion] /= self.normalizations["EVE"][ion]["std"]
 
@@ -261,7 +261,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                 idx_channel = normalizations_align[f'idx_{wavelength}']
                 idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
 
-                wavelength_data = da.from_array(self.aia_data[year][wavelength]) #,  chunks=self.processing_chunk_size)
+                wavelength_data = da.from_array(self.aia_data[year][wavelength])
                 wavelength_data = wavelength_data[idx_channel]
 
                 normalizations["AIA"][wavelength]["sum"] += wavelength_data.sum().compute()

@@ -88,24 +88,23 @@ model = HybridIrradianceModel(
         lr=run_config["training_parameters"]['lr']
 )
 
-import sys
-sys.exit()
 
 # Plot callback
-# total_n_valid = len(data_loader.valid_ds)
-# plot_data = [data_loader.valid_ds[i] for i in range(0, total_n_valid, total_n_valid // 4)]
-# plot_images = torch.stack([image for image, eve in plot_data])
-# plot_eve = torch.stack([eve for image, eve in plot_data])
-# eve_wl = np.load(run_config['eve_wl'], allow_pickle=True)
-# image_callback = ImagePredictionLogger(plot_images, plot_eve, eve_wl, run_config['aia_wl'])
+total_n_valid = data_loader.valid_ds.aligndata.shape[0]
+aia_images = [data_loader.valid_ds.get_aia_image(idx) for idx in range(0, total_n_valid, total_n_valid // 4)]
+eve_data = [data_loader.valid_ds.get_eve(idx) for idx in range(0, total_n_valid, total_n_valid // 4)]
+image_callback = ImagePredictionLogger(aia_images, eve_data, run_config["sci_parameters"]["ions"], run_config["sci_parameters"]["wavelengths"])
 
 # Checkpoint callback
-checkpoint_path = os.path.join(config_data['paths']['checkpoint_path'], str(seed))
-checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_path,
-                                        monitor='valid_loss',
-                                        mode='min',
-                                        save_top_k=1,
-                                        filename=f"{config_data['paths']['checkpoint_file_name']}_{n}")
+checkpoint_path = os.path.join(run_config['paths']['checkpoint_path'], str(random_seed))
+checkpoint_callback = ModelCheckpoint(
+    dirpath=checkpoint_path,
+    monitor='valid_loss',
+    mode='min',
+    save_top_k=1,
+    filename=run_config['paths']['checkpoint_file_name']
+)
+
 
 # TODO: Make this more flexible (only linear, only cnn, both, etc.)
 if run_config['hybrid_loop']:
@@ -132,7 +131,7 @@ else:
     trainer = Trainer(
         default_root_dir=checkpoint_path,
         accelerator="gpu",
-        devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
+        devices=torch.cuda.device_count() if torch.cuda.is_available() else 0,
         max_epochs=run_config['epochs'],
         callbacks=[image_callback, checkpoint_callback],
         logger=wandb_logger,
@@ -150,7 +149,7 @@ torch.save(save_dictionary, full_checkpoint_path)
 # Evaluate on test set
 # Load model from checkpoint
 # TODO: Correct: KeyError: 'pytorch-lightning_version'
-if config_data['paths']['checkpoint_file_name'] is not None:
+if run_config['paths']['checkpoint_file_name'] is not None:
     state = torch.load(full_checkpoint_path)
     model = state['model']
     trainer.test(model, data_loader)
