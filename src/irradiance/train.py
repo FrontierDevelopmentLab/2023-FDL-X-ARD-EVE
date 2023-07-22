@@ -89,6 +89,8 @@ model = HybridIrradianceModel(
         lr=run_config["training_parameters"]['lr']
 )
 
+import sys
+sys.exit()
 
 # Plot callback
 # total_n_valid = len(data_loader.valid_ds)

@@ -8,7 +8,7 @@
 	"paths": {
 		"checkpoint_path": "checkpoints",
 		"checkpoint_file_name": "best_model",
-		"aia_path": "/mnt/sdomlv2_small/sdomlv2_small.zarr",
+		"aia_path": "/mnt/sdomlv2_full/sdomlv2.zarr",
 		"eve_path": "/mnt/sdomlv2_small/sdomlv2_eve.zarr",
 		"cache_directory": "/home/richardagalvez/2023-FDL-X-ARD-EVE/src/cache"
 	},

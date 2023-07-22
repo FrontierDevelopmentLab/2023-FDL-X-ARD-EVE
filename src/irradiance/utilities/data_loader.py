@@ -136,10 +136,10 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         # Chunk size depends on ram available. 500 is a good number for 16GB of ram and 30min cadence.
         # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
-        self.zarr_chunk_size = 200
+        self.zarr_chunk_size = 400
 
         # Temporal alignment of aia and eve data
-        self.aligndata = self.__aligntime()
+        self.aligndata = self.__aligntime()        
         self.normalizations = self.__calc_normalizations()
 
 
@@ -155,28 +155,60 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             return aligndata
 
 
-        join_series = pd.DataFrame()
-        for wavelength in self.wavelengths:
-            df_t_aia = pd.DataFrame()
+        # join_series = pd.DataFrame()
+        # for wavelength in self.wavelengths:
+        #     df_t_aia = pd.DataFrame()
 
-            for key in self.aia_data.keys():
-                aia_channel = self.aia_data[key][wavelength]
+        #     for key in self.aia_data.keys():
+        #         aia_channel = self.aia_data[key][wavelength]
 
-                # Get observation time
-                t_obs_aia_channel = aia_channel.attrs['T_OBS']
+        #         # Get observation time
+        #         t_obs_aia_channel = aia_channel.attrs['T_OBS']
 
-                df_tmp_aia = pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f"idx_{wavelength}": np.arange(0, len(t_obs_aia_channel))})
-                df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index=True)
+        #         df_tmp_aia = pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f"idx_{wavelength}": np.arange(0, len(t_obs_aia_channel))})
+        #         df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index=True)
 
-            # Enforcing same datetime format
-            df_t_aia['Time'] = pd.to_datetime(df_t_aia['Time'], format='mixed').dt.tz_localize(None).dt.round(self.cadence).sort_values()
-            df_t_obs_aia = df_t_aia.drop_duplicates(subset='Time', keep='first').set_index('Time')
+        #     # Enforcing same datetime format
+        #     df_t_aia['Time'] = pd.to_datetime(df_t_aia['Time'], format='mixed').dt.tz_localize(None).dt.round(self.cadence).sort_values()
+        #     df_t_obs_aia = df_t_aia.drop_duplicates(subset='Time', keep='first').set_index('Time')
 
-            if wavelength == self.wavelengths[0]:
+        #     if wavelength == self.wavelengths[0]:
+        #         join_series = df_t_obs_aia
+        #     else:
+        #         join_series = join_series.join(df_t_obs_aia, how='inner')
+
+
+        # select data from zarr
+        for i,wavelength in enumerate(self.wavelengths):
+            for j, year in enumerate(self.aia_data.keys()):
+                print(year, wavelength)
+                aia_channel = self.aia_data[year][wavelength]
+
+                # get observation time
+                t_obs_aia_channel = aia_channel.attrs['T_OBS'] 
+                if j == 0:
+                    # transform to DataFrame
+                    # AIA
+                    df_t_aia = pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel,format='mixed'), f'idx_{wavelength}': np.arange(0,len(t_obs_aia_channel))})
+                    df_t_aia[f'year_{wavelength}'] = year
+
+                else:
+                    df_tmp_aia =pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f'idx_{wavelength}': np.arange(0,len(t_obs_aia_channel))})
+                    df_tmp_aia[f'year_{wavelength}'] = year
+                    df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index = True)
+
+            # enforcing same datetime format
+            transform_datetime = lambda x: pd.to_datetime(x, format='mixed').strftime('%Y-%m-%d %H:%M:%S')
+            df_t_aia['Time'] = df_t_aia['Time'].apply(transform_datetime)
+            df_t_aia['Time'] = pd.to_datetime(df_t_aia['Time']).dt.tz_localize(None) # this is needed for timezone-naive type
+            df_t_aia['Time'] = df_t_aia['Time'].dt.round(self.cadence)
+            df_t_obs_aia = df_t_aia.drop_duplicates(subset='Time', keep='first') # removing potential duplicates derived by rounding
+            df_t_obs_aia.set_index('Time', inplace = True)
+
+            if i == 0:
                 join_series = df_t_obs_aia
             else:
                 join_series = join_series.join(df_t_obs_aia, how='inner')
-
 
         df_t_eve = pd.DataFrame({'Time': pd.to_datetime(self.eve_data['MEGS-A']['Time'][:]), 'idx_eve': np.arange(0, len(self.eve_data['MEGS-A']['Time']))})
         df_t_eve['Time'] = pd.to_datetime(df_t_eve['Time']).dt.round(self.cadence)
@@ -222,6 +254,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         for wavelength in tqdm(self.wavelengths):
             normalizations["AIA"][wavelength] = {}
             for year in self.aia_data.keys():
+                print(year, wavelength)
                 normalizations["AIA"][wavelength] = {}
                 normalizations["AIA"][wavelength][year] = {}
                 
@@ -237,7 +270,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                 # Because AIA data is too big to fit in memory, we need to calculate the normalization in chunks.
                 num_chunks = wavelength_data.shape[0] // self.zarr_chunk_size + 1
 
-                for chunk_num in range(num_chunks):
+                for chunk_num in tqdm(range(num_chunks)):
                     idx_left = chunk_num * self.zarr_chunk_size
                     idx_right = min((chunk_num+1) * self.zarr_chunk_size, wavelength_data.shape[0])
 
