@@ -134,9 +134,6 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.index_cache_filename = f"{cache_dir}/aligndata_{self.cache_id}.csv"
         self.normalizations_cache_filename = f"{cache_dir}/normalizations_{self.cache_id}.json"
 
-        # Chunk size depends on ram available. Divide your total ram available by 20
-        self.processing_chunk_size = "1 GB"
-
         # Temporal alignment of aia and eve data
         self.aligndata = self.__aligntime()        
         self.normalizations = self.__calc_normalizations()
@@ -179,7 +176,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         # select data from zarr
         for i,wavelength in enumerate(self.wavelengths):
-            for j, year in enumerate(self.aia_data.keys()):
+            for j, year in enumerate(range(2010, 2015)): # EVE data only goes up to 2014
                 print(year, wavelength)
                 aia_channel = self.aia_data[year][wavelength]
 
@@ -189,11 +186,9 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                     # transform to DataFrame
                     # AIA
                     df_t_aia = pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel,format='mixed'), f'idx_{wavelength}': np.arange(0,len(t_obs_aia_channel))})
-                    df_t_aia[f'year_{wavelength}'] = year
 
                 else:
                     df_tmp_aia =pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f'idx_{wavelength}': np.arange(0,len(t_obs_aia_channel))})
-                    df_tmp_aia[f'year_{wavelength}'] = year
                     df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index = True)
 
             # enforcing same datetime format
@@ -261,12 +256,12 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             normalizations["AIA"][wavelength]["count"] = 0
             normalizations["AIA"][wavelength]["max"] = float("-inf")
 
-            for year in self.aia_data.keys():
+            for year in range(2010, 2015): # EVE data only goes up to 2014.
                 print(f"year: {year}, wavelength: {wavelength}")
                 idx_channel = normalizations_align[f'idx_{wavelength}']
                 idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
 
-                wavelength_data = da.from_array(self.aia_data[year][wavelength],  chunks=self.processing_chunk_size)
+                wavelength_data = da.from_array(self.aia_data[year][wavelength]) #,  chunks=self.processing_chunk_size)
                 wavelength_data = wavelength_data[idx_channel]
 
                 normalizations["AIA"][wavelength]["sum"] += wavelength_data.sum().compute()
@@ -276,6 +271,8 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                 except Exception as error:
                     print(f"Error for {year} {wavelength}: {error}")
                     pass
+                
+                del wavelength_data
 
             normalizations["AIA"][wavelength]["mean"] = normalizations["AIA"][wavelength]["sum"] / normalizations["AIA"][wavelength]["count"]
 
