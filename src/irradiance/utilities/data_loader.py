@@ -134,9 +134,9 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.index_cache_filename = f"{cache_dir}/aligndata_{self.cache_id}.csv"
         self.normalizations_cache_filename = f"{cache_dir}/normalizations_{self.cache_id}.json"
 
-        # Chunk size depends on ram available. 500 is a good number for 16GB of ram and 30min cadence.
+        # Chunk size depends on ram available. 50 is a good number for 16GB of ram and 30min cadence.
         # If you have more ram, at same cadence, you can increase this number to speed up the normalization calculation.
-        self.zarr_chunk_size = 400
+        self.zarr_chunk_size = 2
 
         # Temporal alignment of aia and eve data
         self.aligndata = self.__aligntime()        
@@ -249,54 +249,32 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             normalizations["EVE"][ion]["min"] = channel_data.min()
             normalizations["EVE"][ion]["max"] = channel_data.max()
     
+        import time
+        
         # AIA Normalization
         normalizations["AIA"] = {}
         for wavelength in tqdm(self.wavelengths):
             normalizations["AIA"][wavelength] = {}
+            normalizations["AIA"][wavelength]["sum"] = 0.
+            normalizations["AIA"][wavelength]["count"] = 0
+            normalizations["AIA"][wavelength]["max"] = float("-inf")
+
             for year in self.aia_data.keys():
                 print(year, wavelength)
-                normalizations["AIA"][wavelength] = {}
-                normalizations["AIA"][wavelength][year] = {}
                 
                 idx_channel = normalizations_align[f'idx_{wavelength}']
                 idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
-                wavelength_data = self.aia_data[year][wavelength][idx_channel]
 
-                normalizations["AIA"][wavelength][year]["sum"] = 0.
-                normalizations["AIA"][wavelength][year]["count"] = 0
-                normalizations["AIA"][wavelength][year]["min"] = float("inf")
-                normalizations["AIA"][wavelength][year]["max"] = float("-inf")
+                print("I get here before I die")
+                wavelength_data = da.from_array(self.aia_data[year][wavelength])
+                print("I get here before I die 2")
+                wavelength_data = wavelength_data[idx_channel]
+                print("I get here before I die 3")
+                print(wavelength_data.head())
 
-                # Because AIA data is too big to fit in memory, we need to calculate the normalization in chunks.
-                num_chunks = wavelength_data.shape[0] // self.zarr_chunk_size + 1
-
-                for chunk_num in tqdm(range(num_chunks)):
-                    idx_left = chunk_num * self.zarr_chunk_size
-                    idx_right = min((chunk_num+1) * self.zarr_chunk_size, wavelength_data.shape[0])
-
-                    chunk = wavelength_data[idx_left:idx_right, :, :].flatten()
-
-                    normalizations["AIA"][wavelength][year]["count"] += chunk.shape[0]
-                    normalizations["AIA"][wavelength][year]["sum"] += chunk.sum()
-                    normalizations["AIA"][wavelength][year]["min"] = min(normalizations["AIA"][wavelength][year]["min"], chunk.min())
-                    normalizations["AIA"][wavelength][year]["max"] = max(normalizations["AIA"][wavelength][year]["max"], chunk.max())
-
-
-        overall_normalizations = {wavelength: {} for wavelength in self.wavelengths}
-        for wavelength in self.wavelengths:
-            overall_wavelength_normalization = {"sum": 0., "count": 0, "max": float("-inf"), "mean": 0.}
-            for year in self.aia_data.keys():
-                idx_channel = normalizations_align[f'idx_{wavelength}']
-                idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
-
-                overall_wavelength_normalization["count"] += normalizations["AIA"][wavelength][year]["count"]
-                overall_wavelength_normalization["sum"] += normalizations["AIA"][wavelength][year]["sum"]
-                overall_wavelength_normalization["max"] = max(overall_wavelength_normalization["max"], normalizations["AIA"][wavelength][year]["max"])
-            
-            overall_wavelength_normalization["mean"] = overall_wavelength_normalization["sum"] / overall_wavelength_normalization["count"]
-            overall_normalizations[wavelength] = overall_wavelength_normalization
-
-        normalizations["AIA"] = overall_normalizations
+                normalizations["AIA"][wavelength]["sum"] += wavelength_data.sum().compute()
+                normalizations["AIA"][wavelength]["count"] += wavelength_data.shape[0]
+                normalizations["AIA"][wavelength]["max"] = max(wavelength_data.max().compute(), normalizations["AIA"][wavelength]["max"])
 
         normalizations["EVE"]["eve_norm"] = [
             [normalizations["EVE"][key]["mean"] for key in normalizations["EVE"].keys()],

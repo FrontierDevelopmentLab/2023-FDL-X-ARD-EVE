@@ -37,12 +37,11 @@ wandb_logger = WandbLogger(
     config=run_config
 )
 
-logger.info(f"Run config: {run_config}")
+# logger.info(f"Run config: {run_config}")
     
 random_seed = run_config["training_parameters"]['seed']
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
-
 
 # Data augmentation
 if run_config["training_parameters"]['ln_model']: # or any complex models
