@@ -93,7 +93,7 @@ model = HybridIrradianceModel(
 total_n_valid = data_loader.valid_ds.aligndata.shape[0]
 aia_images = [data_loader.valid_ds.get_aia_image(idx) for idx in range(0, total_n_valid, total_n_valid // 4)]
 eve_data = [data_loader.valid_ds.get_eve(idx) for idx in range(0, total_n_valid, total_n_valid // 4)]
-image_callback = ImagePredictionLogger(aia_images, eve_data, run_config["sci_parameters"]["ions"], run_config["sci_parameters"]["wavelengths"])
+image_callback = ImagePredictionLogger(aia_images, eve_data, run_config["sci_parameters"]["ions"], run_config["sci_parameters"]["aia_wavelengths"])
 
 # Checkpoint callback
 checkpoint_path = os.path.join(run_config['paths']['checkpoint_path'], str(random_seed))
@@ -107,32 +107,29 @@ checkpoint_callback = ModelCheckpoint(
 
 
 # TODO: Make this more flexible (only linear, only cnn, both, etc.)
-if run_config['hybrid_loop']:
+if run_config["training_parameters"]['hybrid_loop']:
 
     # Lambda/Mode callback
     model.set_train_mode('linear')
-    model.lr = run_config['ln_lr']
+    model.lr = run_config["training_parameters"]['ln_lr']
     switch_mode_callback = LambdaCallback(on_train_epoch_start=lambda trainer, pl_module: model.set_train_mode('cnn') if trainer.current_epoch > run_config['ln_epochs'] else None)
 
-    # Initialize trainer
     trainer = Trainer(
         default_root_dir=checkpoint_path,
         accelerator="gpu",
-        devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
-        max_epochs=(run_config['ln_epochs']+run_config['cnn_epochs']),
+        devices=torch.cuda.device_count() if torch.cuda.is_available() else 0,
+        max_epochs=(run_config["training_parameters"]['ln_epochs']+run_config["training_parameters"]['cnn_epochs']),
         callbacks=[image_callback, checkpoint_callback, switch_mode_callback],
         logger=wandb_logger,
         log_every_n_steps=10
         )
 
 else:
-
-    # Initialize trainer
     trainer = Trainer(
         default_root_dir=checkpoint_path,
         accelerator="gpu",
         devices=torch.cuda.device_count() if torch.cuda.is_available() else 0,
-        max_epochs=run_config['epochs'],
+        max_epochs=run_config["training_parameters"]['epochs'],
         callbacks=[image_callback, checkpoint_callback],
         logger=wandb_logger,
         log_every_n_steps=10

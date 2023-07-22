@@ -284,7 +284,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         return normalizations
 
 
-    def setup(self):
+    def setup(self, stage=None):
 
         self.train_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
                                               self.ions, self.cadence, self.train_months, self.train_transforms,
