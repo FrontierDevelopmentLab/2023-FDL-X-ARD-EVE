@@ -42,6 +42,7 @@ wandb_logger = WandbLogger(
 random_seed = run_config["training_parameters"]['seed']
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
+torch.set_default_dtype(torch.float32)
 
 # Data augmentation
 if run_config["training_parameters"]['ln_model']: # or any complex models
@@ -53,6 +54,7 @@ else:
         ToTensorV2()], 
         additional_targets={'y': 'image'}
     )
+
 
 val_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
 
@@ -89,15 +91,15 @@ model = HybridIrradianceModel(
 
 # Plot callback
 total_n_valid = data_loader.valid_ds.aligndata.shape[0]
-aia_images = [
+aia_images = torch.tensor(np.array([
     data_loader.valid_ds.get_aia_image(idx) for idx in range(0, total_n_valid, total_n_valid // 4)
-    ]
-eve_data = [
+    ]))
+eve_data = torch.tensor(np.array([
     data_loader.valid_ds.get_eve(idx) for idx in range(0, total_n_valid, total_n_valid // 4)
-    ]
+    ]))
 image_callback = ImagePredictionLogger(
-    torch.concat(aia_images), 
-    torch.concat(eve_data),
+    aia_images, 
+    eve_data,
     run_config["sci_parameters"]["ions"],
     run_config["sci_parameters"]["aia_wavelengths"]
 )
@@ -117,12 +119,12 @@ checkpoint_callback = ModelCheckpoint(
 if run_config["training_parameters"]['hybrid_loop']:
 
     # Lambda/Mode callback
-    model.set_train_mode('linear')
-    model.lr = run_config["training_parameters"]['ln_lr']
+    model.set_train_mode("linear")
+    model.lr = run_config["training_parameters"]["ln_lr"]
     switch_mode_callback = LambdaCallback(
         on_train_epoch_start=(
             lambda trainer, 
-            pl_module: model.set_train_mode('cnn') if trainer.current_epoch > run_config['ln_epochs'] else None
+            pl_module: model.set_train_mode('cnn') if trainer.current_epoch > run_config["training_parameters"]["ln_epochs"] else None
         )
     )
 
@@ -131,7 +133,7 @@ if run_config["training_parameters"]['hybrid_loop']:
         accelerator="gpu",
         devices=torch.cuda.device_count() if torch.cuda.is_available() else 0,
         max_epochs=(
-            run_config["training_parameters"]['ln_epochs']+run_config["training_parameters"]['cnn_epochs']
+            run_config["training_parameters"]["ln_epochs"] + run_config["training_parameters"]["cnn_epochs"]
         ),
         callbacks=[image_callback, checkpoint_callback, switch_mode_callback],
         logger=wandb_logger,
@@ -143,7 +145,7 @@ else:
         default_root_dir=checkpoint_path,
         accelerator="gpu",
         devices=torch.cuda.device_count() if torch.cuda.is_available() else 0,
-        max_epochs=run_config["training_parameters"]['epochs'],
+        max_epochs=run_config["training_parameters"]["epochs"],
         callbacks=[image_callback, checkpoint_callback],
         logger=wandb_logger,
         log_every_n_steps=10

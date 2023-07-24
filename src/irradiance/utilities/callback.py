@@ -2,6 +2,7 @@ import wandb
 from pytorch_lightning import Callback
 import matplotlib.pyplot as plt
 import numpy as np
+import sunpy.visualization.colormaps
 
 from src.irradiance.models.model import unnormalize
 
@@ -73,7 +74,7 @@ class ImagePredictionLogger(Callback):
 
         cmaps_all = ['sdoaia94', 'sdoaia131', 'sdoaia171', 'sdoaia193',
                  'sdoaia211', 'sdoaia304', 'sdoaia335', 'sdoaia1600']
-        cmaps = [cmaps_all[i] for i in self.aia_wavelengths]
+        cmaps = [cmaps_all[i] for i, _ in enumerate(self.aia_wavelengths)]
         n_plots = 0
 
         for s in range(samples):

@@ -65,7 +65,6 @@ class ZarrIrradianceDataset(Dataset):
                 # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["max"]
 
         aia_image =  np.array(list(aia_image_dict.values()))
-        aia_image = torch.from_numpy(aia_image)
         
         return aia_image
     
@@ -79,8 +78,7 @@ class ZarrIrradianceDataset(Dataset):
                 eve_ion_dict[ion] -= self.normalizations["EVE"][ion]["mean"]
                 eve_ion_dict[ion] /= self.normalizations["EVE"][ion]["std"]
 
-        eve_data = np.array(list(eve_ion_dict.values()))
-        eve_data = torch.from_numpy(eve_data)
+        eve_data = np.array(list(eve_ion_dict.values()), dtype=np.float32)
 
         return eve_data
 
