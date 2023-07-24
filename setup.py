@@ -14,7 +14,7 @@ setup(
     description='Virtual EVE irradiance prediction model',
     long_description=readme,
     author='FDL-X 2023 ARD EUV Team',
-    author_email='me@kennethreitz.com',
-    url='https://github.com/kennethreitz/samplemod',
+    author_email='richardagalvez@gmail.com',
+    url='https://github.com/FrontierDevelopmentLab/2023-FDL-X-ARD-EVE',
     packages=find_packages(exclude=('old', 'data', 'figures', 'models', 'notebooks', 'scripts', 'tests'))
 )
