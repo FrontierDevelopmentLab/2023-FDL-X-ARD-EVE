@@ -5,8 +5,14 @@ from pytorch_lightning import LightningModule
 from torch import nn
 from torch.nn import HuberLoss
 
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+
+def unnormalize(y, eve_norm):
+    eve_norm = torch.tensor(eve_norm).float()
+    norm_mean = eve_norm[0]
+    norm_stdev = eve_norm[1]
+    y = y * norm_stdev[None].to(y) + norm_mean[None].to(y)
+    return y
+
 
 class IrradianceModel(LightningModule):
 
@@ -15,21 +21,21 @@ class IrradianceModel(LightningModule):
         self.eve_norm = eve_norm
 
         if model == 'efficientnet_b0':
-            model = torchvision.models.efficientnet_b0(pretrained=True)
+            model = torchvision.models.efficientnet_b0(weights='IMAGENET1K_V1')
         elif model == 'efficientnet_b1': 
-            model = torchvision.models.efficientnet_b1(pretrained=True)
+            model = torchvision.models.efficientnet_b1(weights='IMAGENET1K_V1')
         elif model == 'efficientnet_b2': 
-            model = torchvision.models.efficientnet_b2(pretrained=True)
+            model = torchvision.models.efficientnet_b2(weights='IMAGENET1K_V1')
         elif model == 'efficientnet_b3':
-            model = torchvision.models.efficientnet_b3(pretrained=True)
+            model = torchvision.models.efficientnet_b3(weights='IMAGENET1K_V1')
         elif model == 'efficientnet_b4': 
-            model = torchvision.models.efficientnet_b4(pretrained=True)
+            model = torchvision.models.efficientnet_b4(weights='IMAGENET1K_V1')
         elif model == 'efficientnet_b5': 
-            model = torchvision.models.efficientnet_b5(pretrained=True)
+            model = torchvision.models.efficientnet_b5(weights='IMAGENET1K_V1')
         elif model == 'efficientnet_b6': 
-            model = torchvision.models.efficientnet_b6(pretrained=True)
+            model = torchvision.models.efficientnet_b6(weights='IMAGENET1K_V1')
         elif model == 'efficientnet_b7': 
-            model = torchvision.models.efficientnet_b7(pretrained=True)
+            model = torchvision.models.efficientnet_b7(weights='IMAGENET1K_V1')
         conv1_out = model.features[0][0].out_channels
         model.features[0][0] = nn.Conv2d(d_input, conv1_out, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
 
@@ -122,14 +128,6 @@ class IrradianceModel(LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
-
-
-def unnormalize(y, eve_norm):
-    eve_norm = torch.tensor(eve_norm).float()
-    norm_mean = eve_norm[0]
-    norm_stdev = eve_norm[1]
-    y = y * norm_stdev[None].to(y) + norm_mean[None].to(y)
-    return y
 
 
 class ChoppedAlexnetBN(LightningModule):
@@ -381,6 +379,7 @@ class HybridIrradianceModel(LightningModule):
         # Loss function
         self.loss_func = HuberLoss() # consider MSE
 
+
     def forward(self, x):
         # Hybrid model
         if self.ln_model is not None and self.cnn_model is not None:
@@ -414,6 +413,7 @@ class HybridIrradianceModel(LightningModule):
         self.log('lambda_cnn', self.cnn_lambda, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
+
     def validation_step(self, batch, batch_nb):
         x, y = batch
         y_pred = self.forward(x)
@@ -440,6 +440,7 @@ class HybridIrradianceModel(LightningModule):
         self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
 
         return loss
+
 
     def test_step(self, batch, batch_nb):
         x, y = batch
@@ -468,8 +469,10 @@ class HybridIrradianceModel(LightningModule):
 
         return loss
 
+
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
+
 
     def set_train_mode(self, mode):
         if mode == 'linear':

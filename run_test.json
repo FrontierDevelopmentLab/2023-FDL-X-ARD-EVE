@@ -23,7 +23,7 @@
 		"ln_model": true,
 		"ln_epochs": 100,
 		"ln_lr": 0.01,
-		"cnn_model": "resnet",
+		"cnn_model": "efficientnet_b3",
 		"cnn_lr": 0.0001,
 		"cnn_dp": 0.75,
 		"hybrid_loop": true,
@@ -33,6 +33,6 @@
 		"seed": 3110,
 		"val_months": [2, 3],
 		"test_months": [11, 12],
-		"holdout_months": [1, 10]
+		"holdout_months": []
 	}
 }

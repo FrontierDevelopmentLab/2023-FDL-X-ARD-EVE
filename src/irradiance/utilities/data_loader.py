@@ -100,7 +100,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
     val_months: 
     """
     def __init__(self, aia_path, eve_path, wavelengths, ions, frequency, batch_size: int = 32, num_workers=None, train_transforms=None, 
-                 val_transforms=None, val_months=[10,1], test_months=[11,12],  holdout_months=None, cache_dir=""):
+                 val_transforms=None, val_months=[10,1], test_months=[11,12],  holdout_months=[], cache_dir=""):
 
         super().__init__()
         self.num_workers = num_workers if num_workers is not None else os.cpu_count() // 2
@@ -119,7 +119,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.holdout_months = holdout_months
         self.cache_dir = cache_dir
 
-        self.train_months = [i for i in range(1,13) if i not in self.test_months + self.val_months]
+        self.train_months = [i for i in range(1,13) if i not in self.test_months + self.val_months + self.holdout_months]
 
         self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_path))
         self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
@@ -296,4 +296,15 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         
         self.test_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
                                              self.ions, self.cadence, self.test_months, normalizations=self.normalizations)
-        
+
+
+    def train_dataloader(self):
+        return torch.utils.data.DataLoader(self.train_ds)
+    
+
+    def val_dataloader(self):
+        return torch.utils.data.DataLoader(self.valid_ds)
+    
+
+    def test_dataloader(self):
+        return torch.utils.data.DataLoader(self.test_ds)

@@ -75,13 +75,11 @@ data_loader = ZarrIrradianceDataModule(
 
 data_loader.setup()
 
-eve_norm = np.array(data_loader.normalizations["EVE"]["eve_norm"])
-
 # Initalize model
 model = HybridIrradianceModel(
         d_input=len(run_config["sci_parameters"]["aia_wavelengths"]),
         d_output=len(run_config["sci_parameters"]["ions"]),
-        eve_norm=eve_norm, 
+        eve_norm=np.array(data_loader.normalizations["EVE"]["eve_norm"]), 
         cnn_model=run_config["training_parameters"]['cnn_model'], 
         ln_model=run_config["training_parameters"]['ln_model'],
         cnn_dp=run_config["training_parameters"]['cnn_dp'],
@@ -91,9 +89,18 @@ model = HybridIrradianceModel(
 
 # Plot callback
 total_n_valid = data_loader.valid_ds.aligndata.shape[0]
-aia_images = [data_loader.valid_ds.get_aia_image(idx) for idx in range(0, total_n_valid, total_n_valid // 4)]
-eve_data = [data_loader.valid_ds.get_eve(idx) for idx in range(0, total_n_valid, total_n_valid // 4)]
-image_callback = ImagePredictionLogger(aia_images, eve_data, run_config["sci_parameters"]["ions"], run_config["sci_parameters"]["aia_wavelengths"])
+aia_images = [
+    data_loader.valid_ds.get_aia_image(idx) for idx in range(0, total_n_valid, total_n_valid // 4)
+    ]
+eve_data = [
+    data_loader.valid_ds.get_eve(idx) for idx in range(0, total_n_valid, total_n_valid // 4)
+    ]
+image_callback = ImagePredictionLogger(
+    torch.concat(aia_images), 
+    torch.concat(eve_data),
+    run_config["sci_parameters"]["ions"],
+    run_config["sci_parameters"]["aia_wavelengths"]
+)
 
 # Checkpoint callback
 checkpoint_path = os.path.join(run_config['paths']['checkpoint_path'], str(random_seed))
@@ -112,13 +119,20 @@ if run_config["training_parameters"]['hybrid_loop']:
     # Lambda/Mode callback
     model.set_train_mode('linear')
     model.lr = run_config["training_parameters"]['ln_lr']
-    switch_mode_callback = LambdaCallback(on_train_epoch_start=lambda trainer, pl_module: model.set_train_mode('cnn') if trainer.current_epoch > run_config['ln_epochs'] else None)
+    switch_mode_callback = LambdaCallback(
+        on_train_epoch_start=(
+            lambda trainer, 
+            pl_module: model.set_train_mode('cnn') if trainer.current_epoch > run_config['ln_epochs'] else None
+        )
+    )
 
     trainer = Trainer(
         default_root_dir=checkpoint_path,
         accelerator="gpu",
         devices=torch.cuda.device_count() if torch.cuda.is_available() else 0,
-        max_epochs=(run_config["training_parameters"]['ln_epochs']+run_config["training_parameters"]['cnn_epochs']),
+        max_epochs=(
+            run_config["training_parameters"]['ln_epochs']+run_config["training_parameters"]['cnn_epochs']
+        ),
         callbacks=[image_callback, checkpoint_callback, switch_mode_callback],
         logger=wandb_logger,
         log_every_n_steps=10
@@ -137,6 +151,7 @@ else:
 
 # Train the model ⚡
 trainer.fit(model, data_loader)
+
 
 save_dictionary = run_config
 save_dictionary['model'] = model
