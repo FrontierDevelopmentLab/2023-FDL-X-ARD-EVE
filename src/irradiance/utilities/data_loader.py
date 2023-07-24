@@ -142,6 +142,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         This function extracts the common indexes across aia and eve datasets, considering potential missing values.
         """
 
+        # Check the cache
         if Path(self.index_cache_filename).exists():
             aligndata = pd.read_csv(self.index_cache_filename)
             aligndata["Time"] = pd.to_datetime(aligndata["Time"])
@@ -172,7 +173,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         #         join_series = join_series.join(df_t_obs_aia, how='inner')
 
 
-        # select data from zarr
+        # AIA
         for i,wavelength in enumerate(self.wavelengths):
             for j, year in enumerate(range(2010, 2015)): # EVE data only goes up to 2014
                 print(year, wavelength)
@@ -189,7 +190,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                     df_tmp_aia =pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f'idx_{wavelength}': np.arange(0,len(t_obs_aia_channel))})
                     df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index = True)
 
-            # enforcing same datetime format
+            # Enforcing same datetime format
             transform_datetime = lambda x: pd.to_datetime(x, format='mixed').strftime('%Y-%m-%d %H:%M:%S')
             df_t_aia['Time'] = df_t_aia['Time'].apply(transform_datetime)
             df_t_aia['Time'] = pd.to_datetime(df_t_aia['Time']).dt.tz_localize(None) # this is needed for timezone-naive type
@@ -202,6 +203,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             else:
                 join_series = join_series.join(df_t_obs_aia, how='inner')
 
+        # EVE
         df_t_eve = pd.DataFrame({'Time': pd.to_datetime(self.eve_data['MEGS-A']['Time'][:]), 'idx_eve': np.arange(0, len(self.eve_data['MEGS-A']['Time']))})
         df_t_eve['Time'] = pd.to_datetime(df_t_eve['Time']).dt.round(self.cadence)
         df_t_obs_eve = df_t_eve.drop_duplicates(subset='Time', keep='first').set_index('Time')
