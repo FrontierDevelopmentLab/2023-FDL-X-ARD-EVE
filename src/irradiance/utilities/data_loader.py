@@ -297,36 +297,32 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             print("-"*50)
 
             normalizations_aia[wavelength] = {}
-            print(f"Calculating normalizations for {wavelength}: sum")
+
+            print(f"Sum:")
             with ProgressBar():
                 normalizations_aia[wavelength]["sum"] = wavelength_data.sum().compute()
 
-            print(f"Calculating normalizations for {wavelength}: image_count")
-            with ProgressBar():
-                normalizations_aia[wavelength]["image_count"] = wavelength_data.shape[0]
-
-            print(f"Calculating normalizations for {wavelength}: pixel_count")
-            with ProgressBar():
-                normalizations_aia[wavelength]["pixel_count"] = wavelength_data.shape[0] * wavelength_data.shape[1] * wavelength_data.shape[2]
-            
-            normalizations_aia[wavelength]["mean"] = normalizations_aia[wavelength]["sum"] / normalizations_aia[wavelength]["pixel_count"]
-            
-            print(f"Calculating normalizations for {wavelength}: max")
+            print(f"Max Pixel Value:")
             with ProgressBar():
                 normalizations_aia[wavelength]["max"] = wavelength_data.max().compute()
 
-            print(f"Calculating normalizations for {wavelength}: std")
+            print(f"Standard Deviation:")
             with ProgressBar():
                 normalizations_aia[wavelength]["std"] = wavelength_data.std().compute()
 
-            print(f"Calculating normalizations for {wavelength}: skew")
+            print(f"Skew:")
             with ProgressBar():
                 normalizations_aia[wavelength]["skew"] = stats.skew(wavelength_data.flatten()).compute()
 
-            print(f"Calculating normalizations for {wavelength}: kurtosis")
+            print(f"Kurtosis:")
             with ProgressBar():
                 normalizations_aia[wavelength]["kurtosis"] = stats.kurtosis(wavelength_data.flatten()).compute()
 
+            normalizations_aia[wavelength]["image_count"] = wavelength_data.shape[0]
+            normalizations_aia[wavelength]["pixel_count"] = wavelength_data.shape[0] * wavelength_data.shape[1] * wavelength_data.shape[2]
+            normalizations_aia[wavelength]["mean"] = normalizations_aia[wavelength]["sum"] / normalizations_aia[wavelength]["pixel_count"]
+            
+            
         return normalizations_aia
 
     def setup(self, stage=None):
