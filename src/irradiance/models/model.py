@@ -410,7 +410,7 @@ class HybridIrradianceModel(LightningModule):
         # Logging
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True)
-        self.log('lambda_cnn', self.cnn_lambda, on_epoch=True, prog_bar=True, logger=True)
+        self.log('lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True)
         return loss
 
 

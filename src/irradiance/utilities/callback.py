@@ -96,5 +96,5 @@ class ImagePredictionLogger(Callback):
             ax5.set_yscale('log')
             ax5.legend()
 
-        fig.tight_layout()
+        # fig.tight_layout()
         return fig

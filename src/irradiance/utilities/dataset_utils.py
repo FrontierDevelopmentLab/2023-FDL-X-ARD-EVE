@@ -7,7 +7,7 @@ import zarr
 import dask.array as da
 
 
-aia_data = zarr.group(zarr.DirectoryStore("/mnt/sdomlv2_full/sdomlv2.zarr"))
+aia_data = zarr.group(zarr.DirectoryStore("/mnt/sdomlv2_small/sdomlv2_small.zarr"))
 eve_data = zarr.group(zarr.DirectoryStore("/mnt/sdomlv2_small/sdomlv2_eve.zarr"))["MEGS-A"]
 
 aia_wavelengths = list(aia_data["2010"].keys())

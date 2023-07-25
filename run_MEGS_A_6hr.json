@@ -19,7 +19,7 @@
 	},
 	"training_parameters": {
 		"batch_size": 64,
-		"num_workers": 16,
+		"num_workers": 13,
 		"ln_model": true,
 		"ln_epochs": 100,
 		"ln_lr": 0.01,

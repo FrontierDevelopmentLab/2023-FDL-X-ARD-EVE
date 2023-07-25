@@ -28,7 +28,7 @@ PROJECT_DIR = f"{HOME_DIR}/2023-FDL-X-ARD-EVE"
 
 # Parser
 parser = argparse.ArgumentParser()
-parser.add_argument('--config_file', default='run_test.json', required=False)
+parser.add_argument('--config_file', default='run_MEGS_A_6hr.json', required=False)
 args = parser.parse_args()
 with open(args.config_file, 'r') as config_file:
     run_config = json.load(config_file)
@@ -75,7 +75,7 @@ data_loader = ZarrIrradianceDataModule(
     val_months=run_config["training_parameters"]["val_months"], 
     test_months=run_config["training_parameters"]["test_months"], 
     holdout_months=run_config["training_parameters"]["holdout_months"],
-    cache_dir=f"{PROJECT_DIR}/{run_config['paths']['cache_directory']}",
+    cache_dir=f"{PROJECT_DIR}/{run_config['paths']['cache_directory']}"
 )
 data_loader.setup()
 
@@ -94,13 +94,10 @@ model = HybridIrradianceModel(
 
 # Plot callback
 total_n_valid = data_loader.valid_ds.aligndata.shape[0]
-aia_images = torch.tensor(np.array([
-    data_loader.valid_ds.get_aia_image(idx) for idx in range(0, total_n_valid, total_n_valid // 4)
-    ]))
-eve_data = torch.tensor(np.array([
-    data_loader.valid_ds.get_eve(idx) for idx in range(0, total_n_valid, total_n_valid // 4)
-    ]))
-image_callback = ImagePredictionLogger(aia_images, eve_data, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
+val_data = [data_loader.valid_ds.__getitem__(idx) for idx in range(0, total_n_valid, total_n_valid//4)]
+aia_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))
+eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
+image_callback = ImagePredictionLogger(aia_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
 
 # Checkpoint callback
 checkpoint_path = f"{PROJECT_DIR}/{run_config['paths']['checkpoint_path']}/{run_config['run_name']}"

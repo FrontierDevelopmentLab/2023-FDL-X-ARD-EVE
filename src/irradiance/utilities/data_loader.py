@@ -12,6 +12,8 @@ import pytorch_lightning as pl
 import json
 from tqdm import tqdm
 
+from functools import lru_cache
+
 
 class ZarrIrradianceDataset(Dataset):
 
@@ -45,7 +47,7 @@ class ZarrIrradianceDataset(Dataset):
     def __len__(self):
         return self.aligndata.shape[0]
     
-
+    @lru_cache(maxsize=384)
     def __getitem__(self, idx):
         aia_image = self.get_aia_image(idx)
         eve_data = self.get_eve(idx)
@@ -68,7 +70,7 @@ class ZarrIrradianceDataset(Dataset):
         
         return aia_image
     
-    
+
     def get_eve(self, idx):
         eve_ion_dict = {}
         for ion in self.ions:
