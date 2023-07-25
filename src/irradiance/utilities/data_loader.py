@@ -300,7 +300,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                 normalizations_aia[wavelength]["max"] = max(wavelength_data.max().compute(), normalizations_aia[wavelength]["max"])
 
             width, height = wavelength_data.shape
-            normalizations_aia[wavelength]["count"] = normalizations_aia[wavelength]["image_count"] * width * height # number of pixels
+            normalizations_aia[wavelength]["count"] = normalizations_aia[wavelength]["image_count"] * width * height # number of pixels
             normalizations_aia[wavelength]["mean"] = normalizations_aia[wavelength]["sum"] / normalizations_aia[wavelength]["count"]
             return normalizations_aia
 
