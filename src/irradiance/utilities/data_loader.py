@@ -47,7 +47,7 @@ class ZarrIrradianceDataset(Dataset):
     def __len__(self):
         return self.aligndata.shape[0]
     
-    @lru_cache(maxsize=512)
+    @lru_cache(maxsize=356)
     def __getitem__(self, idx):
         aia_image = self.get_aia_image(idx)
         eve_data = self.get_eve(idx)
