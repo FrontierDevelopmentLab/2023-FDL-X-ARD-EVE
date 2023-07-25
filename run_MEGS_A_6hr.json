@@ -1,8 +1,8 @@
 {
-    "run_name": "MEGS_A_6hr",
+    "run_name": "MEGS_A_6hr_100epochs",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"tags": ["test", "dense", "MEGS-A"],
+		"tags": ["test", "dense", "MEGS_A_6hr_100epochs", "MEGS_A", "6hr", "100epochs"],
 		"notes": "Test of eve pipeline with dense ions"
 	},
 	"paths": {
