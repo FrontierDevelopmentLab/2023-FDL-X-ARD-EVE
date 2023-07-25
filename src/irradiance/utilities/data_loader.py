@@ -50,7 +50,7 @@ class ZarrIrradianceDataset(Dataset):
     def __len__(self):
         return self.aligndata.shape[0]
     
-    @lru_cache(maxsize=356)
+    @lru_cache(maxsize=128)
     def __getitem__(self, idx):
         aia_image = self.get_aia_image(idx)
         eve_data = self.get_eve(idx)
@@ -67,7 +67,7 @@ class ZarrIrradianceDataset(Dataset):
             aia_image_dict[wavelength] = self.aia_data[year][wavelength][idx_wavelength, :, :]
             if self.normalizations:
                 aia_image_dict[wavelength] -= self.normalizations["AIA"][wavelength]["mean"]
-                # aia_image_list[wavelength] /= self.normalizations["AIA"][wavelength]["max"]
+                aia_image_dict[wavelength] /= self.normalizations["AIA"][wavelength]["std"]
 
         aia_image =  np.array(list(aia_image_dict.values()))
         
@@ -148,6 +148,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         # Temporal alignment of aia and eve data
         self.aligndata = self.__aligntime()        
         self.normalizations = self.__calc_normalizations()
+
 
     def __str__(self):
         output = ""
@@ -259,6 +260,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         return normalizations
 
+
     def __calc_eve_normalizations(self, normalizations_align) -> dict:
 
         # EVE Normalization
@@ -324,6 +326,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             
             
         return normalizations_aia
+
 
     def setup(self, stage=None):
 
