@@ -12,6 +12,8 @@ import pytorch_lightning as pl
 import json
 from tqdm import tqdm
 
+from functools import lru_cache
+
 
 class ZarrIrradianceDataset(Dataset):
 
@@ -45,7 +47,7 @@ class ZarrIrradianceDataset(Dataset):
     def __len__(self):
         return self.aligndata.shape[0]
     
-
+    @lru_cache(maxsize=356)
     def __getitem__(self, idx):
         aia_image = self.get_aia_image(idx)
         eve_data = self.get_eve(idx)
@@ -68,7 +70,7 @@ class ZarrIrradianceDataset(Dataset):
         
         return aia_image
     
-    
+
     def get_eve(self, idx):
         eve_ion_dict = {}
         for ion in self.ions:
@@ -320,12 +322,12 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_ds)
+        return torch.utils.data.DataLoader(self.train_ds, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True, drop_last=True, pin_memory=True)
     
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(self.valid_ds)
+        return torch.utils.data.DataLoader(self.valid_ds, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
     
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.test_ds)
+        return torch.utils.data.DataLoader(self.test_ds, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
