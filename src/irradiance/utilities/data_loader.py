@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 import zarr
 import dask.array as da
+import dask
+from dask.diagnostics import ProgressBar
+from dask.array import stats
 
 import torch
 from torch.utils.data import Dataset
@@ -83,6 +86,7 @@ class ZarrIrradianceDataset(Dataset):
         eve_data = np.array(list(eve_ion_dict.values()), dtype=np.float32)
 
         return eve_data
+
 
     def __str__(self):
         output = ""
@@ -255,7 +259,6 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         return normalizations
 
-
     def __calc_eve_normalizations(self, normalizations_align) -> dict:
 
         # EVE Normalization
@@ -277,35 +280,54 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         ]
         return normalizations_eve
         
+
     def __calc_aia_normalizations(self, normalizations_align) -> dict:
-        # AIA Normalization
         normalizations_aia = {}
-        for wavelength in tqdm(self.wavelengths):
+
+        for wavelength in self.wavelengths:
+            wavelength_data = da.from_array(self.aia_data[2010][wavelength])
+
+            for year in range(2011, 2015): # EVE data only goes up to 2014.                    
+                wavelength_data_year = da.from_array(self.aia_data[year][wavelength])
+                wavelength_data = da.concatenate([wavelength_data, wavelength_data_year], axis=0)
+
+            wavelength_data = wavelength_data[normalizations_align[f'idx_{wavelength}']]
+            
+            print(f"\nCalculating normalizations for wavelength {wavelength}:")
+            print("-"*50)
+
             normalizations_aia[wavelength] = {}
-            normalizations_aia[wavelength]["sum"] = 0.
-            normalizations_aia[wavelength]["count"] = 0
-            normalizations_aia[wavelength]["image_count"] = 0
-            normalizations_aia[wavelength]["max"] = float("-inf")
+            print(f"Calculating normalizations for {wavelength}: sum")
+            with ProgressBar():
+                normalizations_aia[wavelength]["sum"] = wavelength_data.sum().compute()
 
-            for year in range(2010, 2015): # EVE data only goes up to 2014.
-                print(f"year: {year}, wavelength: {wavelength}")
-                idx_channel = normalizations_align[f'idx_{wavelength}']
-                idx_channel = idx_channel.loc[idx_channel.index.year == int(year)]
+            print(f"Calculating normalizations for {wavelength}: image_count")
+            with ProgressBar():
+                normalizations_aia[wavelength]["image_count"] = wavelength_data.shape[0]
 
-                wavelength_data = da.from_array(self.aia_data[year][wavelength])
-                wavelength_data = wavelength_data[idx_channel]
+            print(f"Calculating normalizations for {wavelength}: pixel_count")
+            with ProgressBar():
+                normalizations_aia[wavelength]["pixel_count"] = wavelength_data.shape[0] * wavelength_data.shape[1] * wavelength_data.shape[2]
+            
+            normalizations_aia[wavelength]["mean"] = normalizations_aia[wavelength]["sum"] / normalizations_aia[wavelength]["pixel_count"]
+            
+            print(f"Calculating normalizations for {wavelength}: max")
+            with ProgressBar():
+                normalizations_aia[wavelength]["max"] = wavelength_data.max().compute()
 
-                normalizations_aia[wavelength]["sum"] += wavelength_data.sum().compute()
-                normalizations_aia[wavelength]["image_count"] += wavelength_data.shape[0] 
-                normalizations_aia[wavelength]["max"] = max(wavelength_data.max().compute(), normalizations_aia[wavelength]["max"])
+            print(f"Calculating normalizations for {wavelength}: std")
+            with ProgressBar():
+                normalizations_aia[wavelength]["std"] = wavelength_data.std().compute()
 
-            batch, width, height = wavelength_data.shape
-            normalizations_aia[wavelength]["count"] = normalizations_aia[wavelength]["image_count"] * width * height # number of pixels
-            normalizations_aia[wavelength]["mean"] = normalizations_aia[wavelength]["sum"] / normalizations_aia[wavelength]["count"]
-            return normalizations_aia
+            print(f"Calculating normalizations for {wavelength}: skew")
+            with ProgressBar():
+                normalizations_aia[wavelength]["skew"] = stats.skew(wavelength_data.flatten()).compute()
 
+            print(f"Calculating normalizations for {wavelength}: kurtosis")
+            with ProgressBar():
+                normalizations_aia[wavelength]["kurtosis"] = stats.kurtosis(wavelength_data.flatten()).compute()
 
-
+        return normalizations_aia
 
     def setup(self, stage=None):
 
