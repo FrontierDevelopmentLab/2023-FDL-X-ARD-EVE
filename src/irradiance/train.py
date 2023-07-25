@@ -41,7 +41,7 @@ wandb_logger = WandbLogger(
     config=run_config
 )
 
-# logger.info(f"Run config: {run_config}")
+logger.info(f"Run config: {run_config}")
     
 random_seed = run_config["training_parameters"]["random_seed"]
 torch.manual_seed(random_seed)
@@ -100,12 +100,7 @@ aia_images = torch.tensor(np.array([
 eve_data = torch.tensor(np.array([
     data_loader.valid_ds.get_eve(idx) for idx in range(0, total_n_valid, total_n_valid // 4)
     ]))
-image_callback = ImagePredictionLogger(
-    aia_images, 
-    eve_data,
-    run_config["sci_parameters"]["eve_ions"],
-    run_config["sci_parameters"]["aia_wavelengths"]
-)
+image_callback = ImagePredictionLogger(aia_images, eve_data, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
 
 # Checkpoint callback
 checkpoint_path = f"{PROJECT_DIR}/{run_config['paths']['checkpoint_path']}/{run_config['run_name']}"

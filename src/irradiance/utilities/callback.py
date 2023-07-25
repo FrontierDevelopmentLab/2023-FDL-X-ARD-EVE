@@ -71,9 +71,9 @@ class ImagePredictionLogger(Callback):
             ncols = 4
             fig = plt.figure(figsize=( 18, 6*samples), dpi=150)
             gs = fig.add_gridspec(2*samples, 7, wspace=0.4, hspace=0.25)
-
-        cmaps_all = ['sdoaia94', 'sdoaia131', 'sdoaia171', 'sdoaia193',
-                 'sdoaia211', 'sdoaia304', 'sdoaia335', 'sdoaia1600']
+        
+        cmaps_all = [f"sdoaia{wavelength.split('A')[0]}" for wavelength in self.aia_wavelengths]
+        
         cmaps = [cmaps_all[i] for i, _ in enumerate(self.aia_wavelengths)]
         n_plots = 0
 

@@ -18,13 +18,15 @@ for ion in tqdm(eve_ions):
     ion_data = eve_data[ion][:]
     nonull_data = ion_data[ion_data>0.]
     eve_profile[ion] = nonull_data.shape[0] / ion_data.shape[0]
+    print(f"ion: {ion} has {nonull_data.shape[0]} measurements out of {ion_data.shape[0]} total.")
 
 eve_profile = pd.Series(eve_profile).sort_values(ascending=False)
 
 dense_wavelengths = eve_profile[eve_profile > 0.9].index.tolist()
 # ['Fe XX', 'Fe VIII', 'Fe X', 'Fe XI', 'Fe XII', 'Fe XIII', 'Fe XIV', 'Fe XV', 'Fe XVIII', 'He II_2', 'He II', 'Fe IX', 'Mg IX', 'Fe XVI']
 
-aia_wavelengths = [f'"{w}", ' for w in aia_wavelengths if w in dense_wavelengths]
+
+[print(f'"{w}"', end=", ") for w in eve_ions]
 
 
 

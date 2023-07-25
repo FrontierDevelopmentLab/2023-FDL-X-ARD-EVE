@@ -299,12 +299,12 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_ds)
+        return torch.utils.data.DataLoader(self.train_ds, batch_size=self.batch_size, num_workers=self.num_workers)
     
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(self.valid_ds)
+        return torch.utils.data.DataLoader(self.valid_ds, batch_size=self.batch_size, num_workers=self.num_workers)
     
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.test_ds)
+        return torch.utils.data.DataLoader(self.test_ds, batch_size=self.batch_size, num_workers=self.num_workers)
