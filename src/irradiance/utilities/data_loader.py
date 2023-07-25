@@ -47,7 +47,7 @@ class ZarrIrradianceDataset(Dataset):
     def __len__(self):
         return self.aligndata.shape[0]
     
-    @lru_cache(maxsize=384)
+    @lru_cache(maxsize=512)
     def __getitem__(self, idx):
         aia_image = self.get_aia_image(idx)
         eve_data = self.get_eve(idx)
@@ -301,12 +301,12 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_ds, batch_size=self.batch_size, num_workers=self.num_workers)
+        return torch.utils.data.DataLoader(self.train_ds, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True, drop_last=True)
     
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(self.valid_ds, batch_size=self.batch_size, num_workers=self.num_workers)
+        return torch.utils.data.DataLoader(self.valid_ds, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True, drop_last=True)
     
 
     def test_dataloader(self):
-        return torch.utils.data.DataLoader(self.test_ds, batch_size=self.batch_size, num_workers=self.num_workers)
+        return torch.utils.data.DataLoader(self.test_ds, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True, drop_last=True)
