@@ -82,6 +82,13 @@ class ZarrIrradianceDataset(Dataset):
 
         return eve_data
 
+    def __str__(self):
+        output = ""
+        for k, v in self.__dict__.items():
+            output += f"{k}: {v}\n"
+        return output
+
+
 
 class ZarrIrradianceDataModule(pl.LightningDataModule):
     """ Loads paired data samples of AIA EUV images and EVE irradiance measures.
@@ -135,6 +142,12 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         # Temporal alignment of aia and eve data
         self.aligndata = self.__aligntime()        
         self.normalizations = self.__calc_normalizations()
+
+    def __str__(self):
+        output = ""
+        for k, v in self.__dict__.items():
+            output += f"{k}: {v}\n"
+        return output
 
 
     def __aligntime(self):
@@ -230,31 +243,47 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         normalizations_align = self.aligndata.copy()
         normalizations_align = normalizations_align[normalizations_align.index.month.isin(self.train_months)]
 
+        normalizations['EVE'] = self.__calc_eve_normalizations(normalizations_align)
+        normalizations['AIA'] = self.__calc_aia_normalizations(normalizations_align)
+
+        with open(self.normalizations_cache_filename, "w") as json_file:
+            save_json = str(normalizations)
+            save_json = save_json.replace("'", '"')
+            json_file.write(save_json)
+
+        return normalizations
+
+
+    def __calc_eve_normalizations(self, normalizations_align) -> dict:
+
         # EVE Normalization
-        normalizations["EVE"] = {}
+        normalizations_eve = {}
         for ion in self.ions:
             # Note that selecting on idx normalizations_align['idx_eve'] removes negative values from EVE data.
             channel_data = self.eve_data['MEGS-A'][ion][normalizations_align['idx_eve']][:]
-            normalizations["EVE"][ion] = {}
-            normalizations["EVE"][ion]["count"] = channel_data.shape[0]
-            normalizations["EVE"][ion]["sum"] = channel_data.sum()
-            normalizations["EVE"][ion]["mean"] = channel_data.mean()
-            normalizations["EVE"][ion]["std"] = channel_data.std()
-            normalizations["EVE"][ion]["min"] = channel_data.min()
-            normalizations["EVE"][ion]["max"] = channel_data.max()
+            normalizations_eve[ion] = {}
+            normalizations_eve[ion]["count"] = channel_data.shape[0]
+            normalizations_eve[ion]["sum"] = channel_data.sum()
+            normalizations_eve[ion]["mean"] = channel_data.mean()
+            normalizations_eve[ion]["std"] = channel_data.std()
+            normalizations_eve[ion]["min"] = channel_data.min()
+            normalizations_eve[ion]["max"] = channel_data.max()
     
-        normalizations["EVE"]["eve_norm"] = [
-            [normalizations["EVE"][key]["mean"] for key in normalizations["EVE"].keys()],
-            [normalizations["EVE"][key]["std"] for key in normalizations["EVE"].keys()]
+        normalizations_eve["eve_norm"] = [
+            [normalizations_eve[key]["mean"] for key in normalizations_eve.keys()],
+            [normalizations_eve[key]["std"] for key in normalizations_eve.keys()]
         ]
+        return normalizations_eve
         
+    def __calc_aia_normalizations(self, normalizations_align) -> dict:
         # AIA Normalization
-        normalizations["AIA"] = {}
+        normalizations_aia = {}
         for wavelength in tqdm(self.wavelengths):
-            normalizations["AIA"][wavelength] = {}
-            normalizations["AIA"][wavelength]["sum"] = 0.
-            normalizations["AIA"][wavelength]["count"] = 0
-            normalizations["AIA"][wavelength]["max"] = float("-inf")
+            normalizations_aia[wavelength] = {}
+            normalizations_aia[wavelength]["sum"] = 0.
+            normalizations_aia[wavelength]["count"] = 0
+            normalizations_aia[wavelength]["image_count"] = 0
+            normalizations_aia[wavelength]["max"] = float("-inf")
 
             for year in range(2010, 2015): # EVE data only goes up to 2014.
                 print(f"year: {year}, wavelength: {wavelength}")
@@ -264,24 +293,16 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                 wavelength_data = da.from_array(self.aia_data[year][wavelength])
                 wavelength_data = wavelength_data[idx_channel]
 
-                normalizations["AIA"][wavelength]["sum"] += wavelength_data.sum().compute()
-                normalizations["AIA"][wavelength]["count"] += wavelength_data.shape[0]
-                try: 
-                    normalizations["AIA"][wavelength]["max"] = max(wavelength_data.max().compute(), normalizations["AIA"][wavelength]["max"])
-                except Exception as error:
-                    print(f"Error for {year} {wavelength}: {error}")
-                    pass
-                
-                del wavelength_data
+                normalizations_aia[wavelength]["sum"] += wavelength_data.sum().compute()
+                normalizations_aia[wavelength]["image_count"] += wavelength_data.shape[0] 
+                normalizations_aia[wavelength]["max"] = max(wavelength_data.max().compute(), normalizations_aia[wavelength]["max"])
 
-            normalizations["AIA"][wavelength]["mean"] = normalizations["AIA"][wavelength]["sum"] / normalizations["AIA"][wavelength]["count"]
+            width, height = wavelength_data.shape
+            normalizations_aia[wavelength]["count"] = normalizations_aia[wavelength]["image_count"] * width * height # number of pixels
+            normalizations_aia[wavelength]["mean"] = normalizations_aia[wavelength]["sum"] / normalizations_aia[wavelength]["count"]
+            return normalizations_aia
 
-        with open(self.normalizations_cache_filename, "w") as json_file:
-            save_json = str(normalizations)
-            save_json = save_json.replace("'", '"')
-            json_file.write(save_json)
 
-        return normalizations
 
 
     def setup(self, stage=None):
