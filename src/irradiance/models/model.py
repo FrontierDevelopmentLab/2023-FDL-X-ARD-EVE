@@ -70,8 +70,8 @@ class IrradianceModel(LightningModule):
 
         epsilon = sys.float_info.min
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_nb):
@@ -92,11 +92,11 @@ class IrradianceModel(LightningModule):
         # mean absolute error
         mae = torch.abs(y - y_pred).mean()
 
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -118,11 +118,11 @@ class IrradianceModel(LightningModule):
         # mean absolute error
         mae = torch.abs(y - y_pred).mean()
 
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -190,8 +190,8 @@ class ChoppedAlexnetBN(LightningModule):
 
         epsilon = sys.float_info.min
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_nb):
@@ -212,11 +212,11 @@ class ChoppedAlexnetBN(LightningModule):
         # mean absolute error
         mae = torch.abs(y - y_pred).mean()
 
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
     
@@ -238,11 +238,11 @@ class ChoppedAlexnetBN(LightningModule):
         # mean absolute error
         mae = torch.abs(y - y_pred).mean()
 
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
     
     def configure_optimizers(self):
@@ -282,8 +282,8 @@ class LinearIrradianceModel(LightningModule):
 
         epsilon = sys.float_info.min
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_nb):
@@ -304,11 +304,11 @@ class LinearIrradianceModel(LightningModule):
         # mean absolute error
         mae = torch.abs(y - y_pred).mean()
 
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -330,11 +330,11 @@ class LinearIrradianceModel(LightningModule):
         # mean absolute error
         mae = torch.abs(y - y_pred).mean()
 
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -408,9 +408,9 @@ class HybridIrradianceModel(LightningModule):
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         
         # Logging
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True)
-        self.log('lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         return loss
 
 
@@ -433,11 +433,11 @@ class HybridIrradianceModel(LightningModule):
         mae = torch.abs(y - y_pred).mean()
 
         # Logging
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -461,11 +461,11 @@ class HybridIrradianceModel(LightningModule):
         mae = torch.abs(y - y_pred).mean()
 
         # Logging
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True)
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 

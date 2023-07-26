@@ -1,9 +1,9 @@
 {
-    "run_name": "MEGS_FULL_EXCEPT_LAST_ION_12min",
+    "run_name": "AIA_FULL_MEGS_FULL_12min",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"tags": ["test", "MEGS_FULL_EXCEPT_LAST_ION", "AIA_FULL", "12min"],
-		"notes": "Test of eve pipeline with full MEGS-A and MEGS-B spectrums except last ion."
+		"tags": ["test", "MEGS_FULL", "AIA_FULL", "12min"],
+		"notes": "Full training run of eve pipeline with full AIA and MEGS spectrums."
 	},
 	"paths": {
 		"checkpoint_path": "checkpoints",
@@ -19,7 +19,7 @@
 	},
 	"training_parameters": {
 		"batch_size": 8,
-		"num_workers": 16,
+		"num_workers": 8,
 		"ln_model": true,
 		"ln_epochs": 20,
 		"ln_lr": 0.01,

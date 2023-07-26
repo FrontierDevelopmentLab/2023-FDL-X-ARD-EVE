@@ -5,11 +5,6 @@ import json
 import sys
 import wandb
 
-import logging
-logging.basicConfig(filename="run_log.txt", level=logging.INFO)
-logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
-logger = logging.getLogger(__name__)
-
 import albumentations as A
 import argparse
 import numpy as np
@@ -41,8 +36,6 @@ wandb_logger = WandbLogger(
     config=run_config
 )
 
-logger.info(f"Run config: {run_config}")
-    
 random_seed = run_config["training_parameters"]["random_seed"]
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
@@ -70,8 +63,6 @@ data_loader = ZarrIrradianceDataModule(
     frequency=run_config["sci_parameters"]["frequency"],
     batch_size=run_config["training_parameters"]["batch_size"],
     num_workers=run_config["training_parameters"]["num_workers"],
-    train_transforms=None,
-    val_transforms=None, 
     val_months=run_config["training_parameters"]["val_months"], 
     test_months=run_config["training_parameters"]["test_months"], 
     holdout_months=run_config["training_parameters"]["holdout_months"],

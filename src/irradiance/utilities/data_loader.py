@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 class ZarrIrradianceDataset(Dataset):
 
-    def __init__(self, aligndata, aia_data, eve_data, wavelengths, ions, freq, months, transformations=None, normalizations=None):
+    def __init__(self, aligndata, aia_data, eve_data, wavelengths, ions, freq, months, normalizations=None):
         """
         aia_path --> path: path to zarr aia data
         eve_path --> path: path to zarr eve data
@@ -38,7 +38,6 @@ class ZarrIrradianceDataset(Dataset):
         self.ions.sort()
         self.cadence = freq
         self.months = months
-        self.transformations = transformations
         self.normalizations = normalizations
 
         # get data from path
@@ -104,20 +103,15 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
     eve_path: path to the EVE zarr data file
     batch_size: batch size (default is 32)
     num_workers: number of workers (needed for the training)
-    train_transforms: transformations to be applied on the training set
-    val_transforms: transformations to be applied on the validation set
     val_months: 
     """
-    def __init__(self, aia_path, eve_path, wavelengths, ions, frequency, batch_size: int = 32, num_workers=None, train_transforms=None, 
-                 val_transforms=None, val_months=[10,1], test_months=[11,12],  holdout_months=[], cache_dir=""):
+    def __init__(self, aia_path, eve_path, wavelengths, ions, frequency, batch_size: int = 32, num_workers=None, val_months=[10,1], test_months=[11,12],  holdout_months=[], cache_dir=""):
 
         super().__init__()
         self.num_workers = num_workers if num_workers is not None else os.cpu_count() // 2
         self.aia_path = aia_path
         self.eve_path = eve_path
         self.batch_size = batch_size
-        self.train_transforms = train_transforms
-        self.val_transforms = val_transforms
         self.wavelengths = wavelengths
         self.wavelengths.sort()
         self.ions = ions
@@ -346,12 +340,10 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
 
         self.train_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
-                                              self.ions, self.cadence, self.train_months, self.train_transforms,
-                                              normalizations=self.normalizations)
+                                              self.ions, self.cadence, self.train_months, normalizations=self.normalizations)
 
         self.valid_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
-                                              self.ions, self.cadence, self.val_months, self.val_transforms, 
-                                              normalizations=self.normalizations)
+                                              self.ions, self.cadence, self.val_months, normalizations=self.normalizations)
         
         self.test_ds = ZarrIrradianceDataset(self.aligndata, self.aia_data, self.eve_data, self.wavelengths, 
                                              self.ions, self.cadence, self.test_months, normalizations=self.normalizations)

@@ -21,6 +21,7 @@ for ion in tqdm(eve_ions):
     print(f"ion: {ion} has {nonull_data.shape[0]} measurements out of {ion_data.shape[0]} total.")
 
 eve_profile = pd.Series(eve_profile).sort_values(ascending=False)
+eve_profile
 
 dense_wavelengths = eve_profile[eve_profile > 0.9].index.tolist()
 # ['Fe XX', 'Fe VIII', 'Fe X', 'Fe XI', 'Fe XII', 'Fe XIII', 'Fe XIV', 'Fe XV', 'Fe XVIII', 'He II_2', 'He II', 'Fe IX', 'Mg IX', 'Fe XVI']
