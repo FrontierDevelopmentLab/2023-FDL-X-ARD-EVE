@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 *run_log.txt
 *wandb*
+*.ckpt
