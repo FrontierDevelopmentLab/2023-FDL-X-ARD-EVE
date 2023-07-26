@@ -29,4 +29,4 @@ dense_wavelengths = eve_profile[eve_profile > 0.9].index.tolist()
 [print(f'"{w}"', end=", ") for w in eve_ions]
 
 
-
+full_eve = ['C III', 'Fe IX', 'Fe VIII', 'Fe X', 'Fe XI', 'Fe XII', 'Fe XIII', 'Fe XIV', 'Fe XIX', 'Fe XV', 'Fe XVI', 'Fe XVIII', 'Fe XX', 'Fe XX_2', 'Fe XX_3', 'H I', 'H I_2', 'H I_3', 'He I', 'He II', 'He II_2', 'He I_2', 'Mg IX', 'Mg X', 'Mg X_2', 'Ne VII', 'Ne VIII', 'O II', 'O III', 'O III_2', 'O II_2', 'O IV', 'O IV_2', 'O V', 'O VI', 'S XIV', 'Si XII', 'Si XII_2']
