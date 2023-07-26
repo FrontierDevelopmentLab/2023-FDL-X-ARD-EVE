@@ -200,6 +200,8 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         #     else:
         #         join_series = join_series.join(df_t_obs_aia, how='inner')
 
+        print(f"\nData alignment calculation begin:")
+        print("-"*50)
 
         # AIA
         for i, wavelength in enumerate(self.wavelengths):
