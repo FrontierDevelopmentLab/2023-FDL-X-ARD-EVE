@@ -260,10 +260,13 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         normalizations['EVE'] = self.__calc_eve_normalizations(normalizations_align)
         normalizations['AIA'] = self.__calc_aia_normalizations(normalizations_align)
 
-        with open(self.normalizations_cache_filename, "w") as json_file:
-            save_json = str(normalizations)
-            save_json = save_json.replace("'", '"')
-            json_file.write(save_json)
+        # with open(self.normalizations_cache_filename, "w") as json_file:
+        #     save_json = str(normalizations)
+        #     save_json = save_json.replace("'", '"')
+        #     json_file.write(save_json)
+        
+        with open(self.normalizations_cache_filename, "w", encoding="utf-8") as json_file:
+            json.dump(normalizations, json_file, indent=4)
 
         return normalizations
 
