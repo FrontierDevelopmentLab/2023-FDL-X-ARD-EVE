@@ -13,6 +13,7 @@ import torch
 from torch.utils.data import Dataset
 import pytorch_lightning as pl
 import json
+from tqdm import tqdm
 
 
 class ZarrIrradianceDataset(Dataset):
@@ -127,10 +128,11 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.holdout_months = holdout_months
         self.cache_dir = cache_dir
 
-        self.train_months = [i for i in range(1,13) if i not in self.test_months + self.val_months + self.holdout_months]
-
         self.aia_data = zarr.group(zarr.DirectoryStore(self.aia_path))
         self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
+
+        self.train_months = [i for i in range(1,13) if i not in self.test_months + self.val_months + self.holdout_months]
+        self.training_years = [int(year) for year in self.aia_data.keys() if int(year) < 2015]
 
         # Cache filenames
         if len(self.wavelengths) == 9:
@@ -138,10 +140,8 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         else:
             wavelength_id = "_".join(self.wavelengths)
         
-        if len(self.ions) == 39:
+        if len(self.ions) == 38:
             ions_id = "EVE_FULL"
-        elif len(self.ions) == 38:
-            ions_id = "EVE_FULL_EXCEPT_LAST_ION"    
         else:
             ions_id = "_".join(ions).replace(" ", "_")
 
@@ -171,6 +171,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         # Check the cache
         if Path(self.index_cache_filename).exists():
+            print(f"Found cached index data in {self.index_cache_filename}")
             aligndata = pd.read_csv(self.index_cache_filename)
             aligndata["Time"] = pd.to_datetime(aligndata["Time"])
             aligndata.set_index("Time", inplace=True)
@@ -201,9 +202,9 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
 
         # AIA
-        for i,wavelength in enumerate(self.wavelengths):
-            for j, year in enumerate(range(2010, 2015)): # EVE data only goes up to 2014
-                print(year, wavelength)
+        for i, wavelength in enumerate(self.wavelengths):
+            print(f"Aligning AIA data for wavelength: {wavelength}")
+            for j, year in enumerate(tqdm((self.training_years))): # EVE data only goes up to 2014
                 aia_channel = self.aia_data[year][wavelength]
 
                 # get observation time
@@ -231,6 +232,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
                 join_series = join_series.join(df_t_obs_aia, how='inner')
 
         # EVE
+        print(f"Aligning EVE data")
         df_t_eve = pd.DataFrame({'Time': pd.to_datetime(self.eve_data['MEGS-A']['Time'][:]), 'idx_eve': np.arange(0, len(self.eve_data['MEGS-A']['Time']))})
         df_t_eve['Time'] = pd.to_datetime(df_t_eve['Time']).dt.round(self.cadence)
         df_t_obs_eve = df_t_eve.drop_duplicates(subset='Time', keep='first').set_index('Time')
@@ -244,6 +246,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         join_series.sort_index(inplace=True)
         join_series.to_csv(self.index_cache_filename)
 
+        print(f"Alignment completed with {join_series.shape[0]} samples.")
         return join_series
 
 
@@ -257,16 +260,16 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         normalizations_align = self.aligndata.copy()
         normalizations_align = normalizations_align[normalizations_align.index.month.isin(self.train_months)]
 
-        normalizations['EVE'] = self.__calc_eve_normalizations(normalizations_align)
-        normalizations['AIA'] = self.__calc_aia_normalizations(normalizations_align)
+        normalizations["EVE"] = self.__calc_eve_normalizations(normalizations_align)
+        normalizations["AIA"] = self.__calc_aia_normalizations(normalizations_align)
 
-        # with open(self.normalizations_cache_filename, "w") as json_file:
-        #     save_json = str(normalizations)
-        #     save_json = save_json.replace("'", '"')
-        #     json_file.write(save_json)
+        with open(self.normalizations_cache_filename, "w") as json_file:
+            save_json = str(normalizations)
+            save_json = save_json.replace("'", '"')
+            json_file.write(save_json)
         
-        with open(self.normalizations_cache_filename, "w", encoding="utf-8") as json_file:
-            json.dump(normalizations, json_file, indent=4)
+        # with open(self.normalizations_cache_filename, "w", encoding="utf-8") as json_file:
+        #     json.dump(normalizations, json_file, indent=4)
 
         return normalizations
 
@@ -299,7 +302,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         for wavelength in self.wavelengths:
             wavelength_data = da.from_array(self.aia_data[2010][wavelength])
 
-            for year in range(2011, 2015): # EVE data only goes up to 2014.                    
+            for year in self.training_years: # EVE data only goes up to 2014.                    
                 wavelength_data_year = da.from_array(self.aia_data[year][wavelength])
                 wavelength_data = da.concatenate([wavelength_data, wavelength_data_year], axis=0)
 

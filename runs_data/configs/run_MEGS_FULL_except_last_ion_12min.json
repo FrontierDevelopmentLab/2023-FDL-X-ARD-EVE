@@ -1,0 +1,38 @@
+{
+    "run_name": "MEGS_FULL_EXCEPT_LAST_ION_12min",
+	"wandb": {
+		"project": "fdl-x-2023",
+		"tags": ["test", "MEGS_FULL_EXCEPT_LAST_ION", "AIA_FULL", "12min"],
+		"notes": "Test of eve pipeline with full MEGS-A and MEGS-B spectrums except last ion."
+	},
+	"paths": {
+		"checkpoint_path": "checkpoints",
+		"checkpoint_file_name": "best_model",
+		"aia_path": "/mnt/sdomlv2_full/sdomlv2.zarr",
+		"eve_path": "/mnt/sdomlv2_full/sdomlv2_eve.zarr",
+		"cache_directory": "runs_data/cache"
+	},
+	"sci_parameters": {
+		"aia_wavelengths": ["131A", "1600A", "1700A", "171A", "193A", "211A", "304A", "335A", "94A"],
+		"eve_ions": ["C III", "Fe IX", "Fe VIII", "Fe X", "Fe XI", "Fe XII", "Fe XIII", "Fe XIV", "Fe XIX", "Fe XV", "Fe XVI", "Fe XVIII", "Fe XX", "Fe XX_2", "Fe XX_3", "H I", "H I_2", "H I_3", "He I", "He II", "He II_2", "He I_2", "Mg IX", "Mg X", "Mg X_2", "Ne VII", "Ne VIII", "O II", "O III", "O III_2", "O II_2", "O IV", "O IV_2", "O V", "O VI", "S XIV", "Si XII", "Si XII_2"],
+		"frequency": "12min"
+	},
+	"training_parameters": {
+		"batch_size": 8,
+		"num_workers": 16,
+		"ln_model": true,
+		"ln_epochs": 20,
+		"ln_lr": 0.01,
+		"cnn_model": "efficientnet_b3",
+		"cnn_lr": 0.0001,
+		"cnn_dp": 0.75,
+		"hybrid_loop": true,
+		"cnn_epochs": 20,
+		"epochs": 250,
+		"lr": 0.0001,
+		"random_seed": 3110,
+		"val_months": [2, 3],
+		"test_months": [11, 12],
+		"holdout_months": [1, 10]
+	}
+}
