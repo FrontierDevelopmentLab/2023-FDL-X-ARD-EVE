@@ -136,8 +136,18 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
         self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
 
         # Cache filenames
-        wavelength_id = "_".join(self.wavelengths)
-        ions_id = "_".join(ions).replace(" ", "_")
+        if len(self.wavelengths) == 9:
+            wavelength_id = "AIA_FULL"
+        else:
+            wavelength_id = "_".join(self.wavelengths)
+        
+        if len(self.ions) == 39:
+            ions_id = "EVE_FULL"
+        elif len(self.ions) == 38:
+            ions_id = "EVE_FULL_EXCEPT_LAST_ION"    
+        else:
+            ions_id = "_".join(ions).replace(" ", "_")
+
         self.cache_id = f"{wavelength_id}_{ions_id}_{self.cadence}"
         if "small" in self.aia_path: 
             self.cache_id += "_small"
