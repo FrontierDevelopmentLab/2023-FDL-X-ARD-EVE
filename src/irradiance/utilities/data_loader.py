@@ -165,7 +165,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
 
         # Check the cache
         if Path(self.index_cache_filename).exists():
-            print(f"Found cached index data in {self.index_cache_filename}")
+            print(f"[* CACHE SYSTEM *] Found cached index data in {self.index_cache_filename}.")
             aligndata = pd.read_csv(self.index_cache_filename)
             aligndata["Time"] = pd.to_datetime(aligndata["Time"])
             aligndata.set_index("Time", inplace=True)
@@ -249,6 +249,7 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
     def __calc_normalizations(self):
 
         if Path(self.normalizations_cache_filename).exists():
+            print(f"[* CACHE SYSTEM *] Found cached normalization data in {self.normalizations_cache_filename}.")
             with open(self.normalizations_cache_filename, "r") as json_file:
                 return json.load(json_file)
 

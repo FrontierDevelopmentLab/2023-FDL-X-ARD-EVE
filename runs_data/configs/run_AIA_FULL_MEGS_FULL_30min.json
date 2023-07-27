@@ -1,12 +1,12 @@
 {
-    "run_name": "_TEST_AIA_FULL_MEGS_FULL_30min",
+    "run_name": "AIA_FULL_MEGS_FULL_30min",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"tags": ["test", "MEGS_FULL", "AIA_FULL", "30min"],
+		"tags": ["MEGS_FULL", "AIA_FULL", "30min"],
 		"notes": "Full training run of eve pipeline with full AIA and MEGS spectrums."
 	},
 	"paths": {
-		"checkpoint_path": "checkpoints",
+		"checkpoint_path": "runs_data/checkpoints",
 		"checkpoint_file_name": "best_model",
 		"aia_path": "/mnt/sdomlv2_full/sdomlv2.zarr",
 		"eve_path": "/mnt/sdomlv2_full/sdomlv2_eve.zarr",
@@ -18,8 +18,8 @@
 		"frequency": "30min"
 	},
 	"training_parameters": {
-		"batch_size": 16,
-		"num_workers": 16,
+		"batch_size": 32,
+		"num_workers": 32,
 		"ln_model": true,
 		"ln_epochs": 2,
 		"ln_lr": 0.01,
