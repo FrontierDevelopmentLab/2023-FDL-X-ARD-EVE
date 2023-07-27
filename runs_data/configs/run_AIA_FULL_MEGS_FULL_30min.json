@@ -18,10 +18,10 @@
 		"frequency": "30min"
 	},
 	"training_parameters": {
-		"batch_size": 32,
+		"batch_size": 12,
 		"num_workers": 32,
 		"ln_model": true,
-		"ln_epochs": 2,
+		"ln_epochs": 20,
 		"ln_lr": 0.01,
 		"cnn_model": "efficientnet_b3",
 		"cnn_lr": 0.0001,
