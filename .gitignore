@@ -161,4 +161,4 @@ cython_debug/
 *run_log.txt
 *wandb*
 *.ckpt
-runs_data/cache/eve_df.parquet
+*.parquet
