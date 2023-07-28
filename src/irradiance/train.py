@@ -139,6 +139,7 @@ trainer.fit(model, data_loader)
 
 
 run_config["model"] = model
+run_config["normalizations"] = data_loader.normalizations
 full_checkpoint_path = f"{checkpoint_path}/{run_config['paths']['checkpoint_file_name']}.ckpt"
 torch.save(run_config, full_checkpoint_path)
 
