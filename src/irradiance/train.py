@@ -1,5 +1,9 @@
 import argparse
 import os
+from pathlib import Path
+import json
+import sys
+import wandb
 
 import albumentations as A
 import argparse
@@ -8,114 +12,139 @@ import torch
 from albumentations.pytorch import ToTensorV2
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers.wandb import WandbLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, LambdaCallback
 
-from irradiance.models.model import IrradianceModel
-from irradiance.utilities.callback import ImagePredictionLogger
-from irradiance.utilities.data_loader import IrradianceDataModule
+from src.irradiance.models.model import HybridIrradianceModel
+from src.irradiance.utilities.callback import ImagePredictionLogger
+from src.irradiance.utilities.data_loader import ZarrIrradianceDataModule
 
-p = argparse.ArgumentParser(
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+HOME_DIR = os.getenv("HOME")
+PROJECT_DIR = f"{HOME_DIR}/2023-FDL-X-ARD-EVE"
 
-p.add_argument('-stack_csv_path', type=str,
-               default='/mnt/converted_data_1hr/matches/merged_256_limb.csv',
-               help='path to the CSV with the AIA image stack paths.')
+# Parser
+parser = argparse.ArgumentParser()
+parser.add_argument('--config_file', default='run_MEGS_A_6hr.json', required=False)
+args = parser.parse_args()
+with open(args.config_file, 'r') as config_file:
+    run_config = json.load(config_file)
 
-p.add_argument('-eve_norm_path', type=str,
-               default='/mnt/converted_data_1hr/eve_normalization.npy',
-               help='path to the EVE normalization.')
+wandb_logger = WandbLogger(
+    project=run_config['wandb']['project'],
+    tags=run_config['wandb']['tags'],
+    name=run_config['run_name'],
+    notes=run_config['wandb']['notes'],
+    config=run_config
+)
 
-p.add_argument('-eve_wl_names', type=str,
-               default='/mnt/converted_data_1hr/eve_wl_names.npy',
-               help='path to the EVE norm')
+random_seed = run_config["training_parameters"]["random_seed"]
+torch.manual_seed(random_seed)
+np.random.seed(random_seed)
+torch.set_default_dtype(torch.float32)
 
-p.add_argument('-eve_npy_path', type=str,
-               default='/mnt/converted_data_1hr/eve_converted.npy',
-               help='path to converted EVE data')
-
-p.add_argument('-model_checkpoints', type=str,
-               default="/mnt/training/data_1hr_cad",
-               help='path to the output directory.')
-
-p.add_argument('-max_epochs', type=int,
-               default=200,
-               help= 'epochs for the training')
-
-p.add_argument('-seed', type=int, default=3110, help='seed for the training.')
-
-p.add_argument('-checkpoint_name', type=str, default=None, help='Filename to load checkpoint')
-
-args = p.parse_args()
-
-# For reproducibility
-seed = args.seed
-torch.manual_seed(seed)
-np.random.seed(seed)
-
-print('Seed: ', seed)
-
-checkpoint_path = os.path.join(args.model_checkpoints, str(seed))
-
-eve_norm = np.load(args.eve_norm_path)
-
-train_transforms = A.Compose([
-    A.HorizontalFlip(p=0.5),
-    A.Rotate(limit=180, p=0.9, value=0, border_mode=1),
-    ToTensorV2()], additional_targets={'y': 'image', })
+# Data augmentation
+if run_config["training_parameters"]["ln_model"]:
+    train_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
+else:
+    train_transforms = A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.Rotate(limit=180, p=0.9, value=0, border_mode=1),
+        ToTensorV2()], 
+        additional_targets={'y': 'image'}
+    )
 
 val_transforms = A.Compose([ToTensorV2()], additional_targets={'y': 'image', })
 
-# Init our model
-data_loader = IrradianceDataModule(
-    args.stack_csv_path, 
-    args.eve_npy_path, 
-    num_workers=os.cpu_count() // 2,
-    train_transforms=train_transforms, val_transforms=val_transforms
-) # type: ignore
-
+# Initialize data loader
+data_loader = ZarrIrradianceDataModule(
+    aia_path=run_config['paths']['aia_path'], 
+    eve_path=run_config['paths']['eve_path'],
+    wavelengths=run_config["sci_parameters"]["aia_wavelengths"],
+    ions=run_config["sci_parameters"]["eve_ions"],
+    frequency=run_config["sci_parameters"]["frequency"],
+    batch_size=run_config["training_parameters"]["batch_size"],
+    num_workers=run_config["training_parameters"]["num_workers"],
+    val_months=run_config["training_parameters"]["val_months"], 
+    test_months=run_config["training_parameters"]["test_months"], 
+    holdout_months=run_config["training_parameters"]["holdout_months"],
+    cache_dir=f"{PROJECT_DIR}/{run_config['paths']['cache_directory']}"
+)
 data_loader.setup()
-model = IrradianceModel(d_input=4, d_output=14, eve_norm=eve_norm)
 
-# initialize logger
-wandb_logger = WandbLogger(name=None, entity='v1',  project='2023-virtual-eve',  group=f'seed-{seed}')
 
-# initialize plot callback - change to valid_ds
-total_n_valid = len(data_loader.valid_ds)
-plot_data = [data_loader.valid_ds[i] for i in range(0, total_n_valid, total_n_valid // 8)]
-plot_images = torch.stack([image for image, eve in plot_data])
-plot_eve = torch.stack([eve for image, eve in plot_data])
-wl_names = np.load(args.eve_wl_names, allow_pickle=True)
+# Initalize model
+model = HybridIrradianceModel(
+        d_input=len(run_config["sci_parameters"]["aia_wavelengths"]),
+        d_output=len(run_config["sci_parameters"]["eve_ions"]),
+        eve_norm=np.array(data_loader.normalizations["EVE"]["eve_norm"]), 
+        cnn_model=run_config["training_parameters"]['cnn_model'], 
+        ln_model=run_config["training_parameters"]['ln_model'],
+        cnn_dp=run_config["training_parameters"]['cnn_dp'],
+        lr=run_config["training_parameters"]['lr']
+)
 
-# TODO: There is a missing entry for ImagePredictionLogger, what is it?
-image_callback = ImagePredictionLogger(plot_images, plot_eve, wl_names)
 
-checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_path,
-                                        monitor='valid_loss',
-                                        mode='min',
-                                        save_top_k=1)
+# Plot callback
+total_n_valid = data_loader.valid_ds.aligndata.shape[0]
+val_data = [data_loader.valid_ds.__getitem__(idx) for idx in range(0, total_n_valid, total_n_valid//4)]
+aia_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))
+eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
+image_callback = ImagePredictionLogger(aia_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
 
-# Initialize a train
-trainer = Trainer(
-    default_root_dir=checkpoint_path,
-    accelerator="gpu",
-    devices="auto", # 1 if torch.cuda.is_available() else None,  # limiting got iPython runs
-    max_epochs=args.max_epochs,
-    callbacks=[image_callback, checkpoint_callback],
-    logger=wandb_logger,
-    log_every_n_steps=10
+# Checkpoint callback
+checkpoint_path = f"{PROJECT_DIR}/{run_config['paths']['checkpoint_path']}/{run_config['run_name']}"
+checkpoint_callback = ModelCheckpoint(
+    dirpath=checkpoint_path,
+    monitor='valid_loss',
+    mode='min',
+    save_top_k=1,
+    filename=run_config["paths"]["checkpoint_file_name"]
+)
+
+
+# TODO: Make this more flexible (only linear, only cnn, both, etc.)
+if run_config["training_parameters"]['hybrid_loop']:
+
+    # Lambda/Mode callback
+    model.set_train_mode("linear")
+    model.lr = run_config["training_parameters"]["ln_lr"]
+    switch_mode_callback = LambdaCallback(
+        on_train_epoch_start=(
+            lambda trainer, pl_module: model.set_train_mode("cnn") if trainer.current_epoch > run_config["training_parameters"]["ln_epochs"] else None
+        )
     )
+
+    trainer = Trainer(
+        default_root_dir=checkpoint_path,
+        accelerator="auto",
+        devices="auto", # torch.cuda.device_count() if torch.cuda.is_available() else 0,
+        max_epochs=(run_config["training_parameters"]["ln_epochs"] + run_config["training_parameters"]["cnn_epochs"]),
+        callbacks=[image_callback, checkpoint_callback, switch_mode_callback],
+        logger=wandb_logger,
+        log_every_n_steps=10
+        )
+
+else:
+    trainer = Trainer(
+        default_root_dir=checkpoint_path,
+        accelerator="auto",
+        devices="auto", #torch.cuda.device_count() if torch.cuda.is_available() else 0,
+        max_epochs=run_config["training_parameters"]["epochs"],
+        callbacks=[image_callback, checkpoint_callback],
+        logger=wandb_logger,
+        log_every_n_steps=10
+        )
 
 # Train the model ⚡
 trainer.fit(model, data_loader)
 
-# Evaluate on test set
-# Load model from checkpoint
-if checkpoint_name is not None:
-    full_chkpt_path = os.path.join(checkpoint_path, args.checkpoint_name)
-    model = IrradianceModel.load_from_checkpoint(full_chkpt_path, d_input=4, d_output=14, eve_norm=eve_norm)
-    trainer.test(model, data_loader)
 
-trainer.save_checkpoint(os.path.join(checkpoint_path, "final_model.ckpt"), weights_only=False)
+run_config["model"] = model
+run_config["normalizations"] = data_loader.normalizations
+full_checkpoint_path = f"{checkpoint_path}/{run_config['paths']['checkpoint_file_name']}.ckpt"
+torch.save(run_config, full_checkpoint_path)
 
+trainer.test(model, data_loader, verbose=True)
 
+# Finalize logging
+wandb.finish()
 
