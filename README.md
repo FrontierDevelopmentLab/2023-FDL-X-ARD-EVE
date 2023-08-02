@@ -2,3 +2,4 @@
 Project for EVE Irradiance Model
 
 In progress: we are transitioning work from FDL 2022 to FDL 2023.
+Also, adding HMI data to pipeline.
