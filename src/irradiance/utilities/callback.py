@@ -98,3 +98,139 @@ class ImagePredictionLogger(Callback):
 
         # fig.tight_layout()
         return fig
+    
+
+class ImagePredictionLoggerHMI(Callback):
+
+    def __init__(self, val_imgs, val_eve, ions, channels):
+        super().__init__()
+                    
+        self.val_eve = val_eve
+        self.names = ions
+
+        self.val_imgs, self.val_eve = val_imgs, val_eve
+        
+        # either HMI + AIA or any of them individually
+        self.channels = channels
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        # Bring the tensors to CPU
+        val_imgs = self.val_imgs.to(device=pl_module.device)
+        # Get model prediction
+        # pred_eve = pl_module.forward(val_imgs).cpu().numpy()
+        pred_eve = pl_module.forward_unnormalize(val_imgs).cpu().numpy()
+        val_eve = unnormalize(self.val_eve, pl_module.eve_norm).numpy()
+        val_imgs = val_imgs.cpu().numpy()
+
+        # create matplotlib figure
+        fig = self.plot_channel_eve(val_imgs, val_eve, pred_eve)
+        # Log the images to wandb
+        trainer.logger.experiment.log({"AIA Images and EVE bar plots": wandb.Image(fig)})
+        plt.close(fig)
+
+    def plot_channel_eve(self,val_imgs, val_eve, pred_eve):
+        """
+        Function to plot a 4 channel AIA stack and the EVE barplots
+
+        Arguments:
+        ----------
+            val_imgs: numpy array
+                Stack with 4 image channels
+            val_eve: numpy array
+                Stack of ground-truth eve channels
+            pred_eve: numpy array
+                Stack of predicted eve channels
+        Returns:
+        --------
+            fig: matplotlib figure
+                figure with plots
+        """
+        cmap_dict = {
+            'By': 'hmimag',
+            'Bz': 'hmimag',
+            'Bx': 'hmimag',
+            "131A": 'sdoaia131',
+            "1600A": 'sdoaia1600',
+            "1700A": 'sdoaia1700',
+            "171A": 'sdoaia171',
+            "193A": 'sdoaia193',
+            "211A": 'sdoaia211',
+            "304A": 'sdoaia304',
+            "335A": 'sdoaia335',
+            "94A": 'sdoaia94'}
+
+        fig = plt.figure(figsize=(10,14), dpi=150)
+        
+        nrows = 4
+        ncols = 4
+
+        # Bx
+        plt.subplot(nrows,ncols,1)
+        plt.imshow(val_imgs[0], cmap = plt.get_cmap(cmap_dict['Bx']), vmin = 0, vmax = 1)
+        plt.title('HMI - Bx')
+
+        # By
+        plt.subplot(nrows,ncols,2)
+        plt.imshow(val_imgs[1], cmap = plt.get_cmap(cmap_dict['By']), vmin = 0, vmax = 1)
+        plt.title('HMI - By')
+
+        # Bz
+        plt.subplot(nrows,ncols,3)
+        plt.imshow(val_imgs[2], cmap = plt.get_cmap(cmap_dict['Bz']), vmin = 0, vmax = 1)
+        plt.title('HMI - Bz')
+
+        # 131A
+        plt.subplot(nrows,ncols,4)
+        plt.imshow(val_imgs[3], cmap = plt.get_cmap(cmap_dict['131A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 131 Å')
+
+        # 1600A
+        plt.subplot(nrows,ncols,5)
+        plt.imshow(val_imgs[4], cmap = plt.get_cmap(cmap_dict['1600A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 1600 Å')
+
+        # 1700A
+        plt.subplot(nrows,ncols,6)
+        plt.imshow(val_imgs[5], cmap = plt.get_cmap(cmap_dict['1700A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 1700 Å')
+
+        # 171A
+        plt.subplot(nrows,ncols,7)
+        plt.imshow(val_imgs[6], cmap = plt.get_cmap(cmap_dict['171A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 171 Å')
+
+        # 193A
+        plt.subplot(nrows,ncols,8)
+        plt.imshow(val_imgs[7], cmap = plt.get_cmap(cmap_dict['193A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 193 Å')
+
+        # 211A
+        plt.subplot(nrows,ncols,9)
+        plt.imshow(val_imgs[8], cmap = plt.get_cmap(cmap_dict['211A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 211 Å')
+
+        # 304A
+        plt.subplot(nrows,ncols,10)
+        plt.imshow(val_imgs[9], cmap = plt.get_cmap(cmap_dict['304A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 304 Å')
+
+        # 335A
+        plt.subplot(nrows,ncols,11)
+        plt.imshow(val_imgs[10], cmap = plt.get_cmap(cmap_dict['335A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 335 Å')
+
+        # 94A
+        plt.subplot(nrows,ncols,12)
+        plt.imshow(val_imgs[11], cmap = plt.get_cmap(cmap_dict['94A']), vmin = 0, vmax = 1)
+        plt.title('AIA - 94 Å')
+
+        # EVE
+        plt.subplot(nrows,1,nrows)
+        plt.bar(np.arange(0,len(val_eve)), val_eve[:], label='ground truth')
+        plt.bar(np.arange(0,len(pred_eve)), pred_eve[:], width = 0.5, label='prediction', alpha=0.5)
+        plt.xticks(np.arange(0,len(pred_eve)),["C III", "Fe IX", "Fe VIII", "Fe X", "Fe XI", "Fe XII", "Fe XIII", "Fe XIV", "Fe XIX", "Fe XV", "Fe XVI", "Fe XVIII", "Fe XX", "Fe XX_2", "Fe XX_3", "H I", "H I_2", "H I_3", "He I", "He II", "He II_2", "He I_2", "Mg IX", "Mg X", "Mg X_2", "Ne VII", "Ne VIII", "O II", "O III", "O III_2", "O II_2", "O IV", "O IV_2", "O V", "O VI", "S XIV", "Si XII", "Si XII_2"],rotation = 90)
+        plt.yscale('log')
+        
+        plt.tight_layout()
+        
+        return fig

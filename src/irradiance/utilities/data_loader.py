@@ -264,9 +264,6 @@ class ZarrIrradianceDataModule(pl.LightningDataModule):
             save_json = str(normalizations)
             save_json = save_json.replace("'", '"')
             json_file.write(save_json)
-        
-        # with open(self.normalizations_cache_filename, "w", encoding="utf-8") as json_file:
-        #     json.dump(normalizations, json_file, indent=4)
 
         return normalizations
 
@@ -414,12 +411,12 @@ class ZarrIrradianceDatasetHMI(Dataset):
 
     def __getitem__(self, idx):
 
-        if self.isAIA and not self.isHMI:
+        if self.aia_data is not None and self.hmi_data is None:
             aia_image = self.get_aia_image(idx)
             eve_data = self.get_eve(idx)
             return aia_image, eve_data
         
-        elif self.isHMI and not self.isAIA:
+        elif self.hmi_data is not None and self.aia_data is None:
             hmi_image = self.get_hmi_image(idx)
             eve_data = self.get_eve(idx)
             return hmi_image, eve_data
@@ -428,7 +425,7 @@ class ZarrIrradianceDatasetHMI(Dataset):
             aia_image = self.get_aia_image(idx)
             eve_data = self.get_eve(idx)     
             hmi_image = self.get_hmi_image(idx)       
-        return hmi_image, aia_image, eve_data
+        return torch.cat((hmi_image, aia_image), axis=1), eve_data
 
 
     def get_aia_image(self, idx):
@@ -751,9 +748,6 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
             save_json = str(normalizations)
             save_json = save_json.replace("'", '"')
             json_file.write(save_json)
-        
-        with open(self.normalizations_cache_filename, "w", encoding="utf-8") as json_file:
-             json.dump(normalizations, json_file, indent=4)
 
         return normalizations
 

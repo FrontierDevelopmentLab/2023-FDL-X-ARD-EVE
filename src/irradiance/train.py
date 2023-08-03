@@ -15,7 +15,7 @@ from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, LambdaCallback
 
 from src.irradiance.models.model import HybridIrradianceModel
-from src.irradiance.utilities.callback import ImagePredictionLogger
+from src.irradiance.utilities.callback import ImagePredictionLoggerHMI
 from src.irradiance.utilities.data_loader import ZarrIrradianceDataModuleHMI
 
 HOME_DIR = os.getenv("HOME")
@@ -23,7 +23,7 @@ PROJECT_DIR = f"{HOME_DIR}/2023-FDL-X-ARD-EVE"
 
 # Parser
 parser = argparse.ArgumentParser()
-parser.add_argument('--config_file', default='run_test_manuel.json', required=False)
+parser.add_argument('--config_file', default='runs_data/configs/run_test_manuel.json', required=False)
 args = parser.parse_args()
 with open(args.config_file, 'r') as config_file:
     run_config = json.load(config_file)
@@ -73,7 +73,7 @@ data_loader = ZarrIrradianceDataModuleHMI(
     hmi_path=run_config['paths']['hmi_path'],
     aia_path=run_config['paths']['aia_path'], 
     eve_path=run_config['paths']['eve_path'],
-    components=run_config["sci_parameters"]["components"],
+    components=run_config["sci_parameters"]["hmi_components"],
     wavelengths=run_config["sci_parameters"]["aia_wavelengths"],
     ions=run_config["sci_parameters"]["eve_ions"],
     frequency=run_config["sci_parameters"]["frequency"],
@@ -89,7 +89,7 @@ data_loader.setup()
 
 # Initalize model (assuming that if AIA/HMI are not included there is an empty list)
 model = HybridIrradianceModel(
-        d_input=len(run_config["sci_parameters"]["aia_wavelengths"])+len(run_config["sci_parameters"]["components"]),
+        d_input=len(run_config["sci_parameters"]["aia_wavelengths"]) + len(run_config["sci_parameters"]["hmi_components"]),
         d_output=len(run_config["sci_parameters"]["eve_ions"]),
         eve_norm=np.array(data_loader.normalizations["EVE"]["eve_norm"]), 
         cnn_model=run_config["training_parameters"]['cnn_model'], 
@@ -102,21 +102,20 @@ model = HybridIrradianceModel(
 total_n_valid = data_loader.valid_ds.aligndata.shape[0]
 val_data = [data_loader.valid_ds.__getitem__(idx) for idx in range(0, total_n_valid, total_n_valid//4)]
 if run_config['paths']['hmi_path'] is not None and run_config['paths']['aia_path'] is not None:
-    hmi_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))    
-    aia_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
-    eve_val = torch.tensor(np.array([val_data[idx][2] for idx, _ in enumerate(val_data)]))
-    # THIS LINE MUST BE FINISHED
-    image_callback = ImagePredictionLogger(hmi_val, aia_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
+    hmi_aia_stack_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))    
+    eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
+    hmi_aia_config = run_config["sci_parameters"]["hmi_components"] + run_config["sci_parameters"]["aia_wavelengths"] 
+    image_callback = ImagePredictionLoggerHMI(hmi_aia_stack_val, eve_val, run_config["sci_parameters"]["eve_ions"], hmi_aia_config)
 
 elif run_config['paths']['hmi_path'] is not None and run_config['paths']['aia_path'] is None:
     hmi_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))    
     eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
-    image_callback = ImagePredictionLogger(hmi_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["components"])
+    image_callback = ImagePredictionLoggerHMI(hmi_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["hmi_components"])
 
 else: # HMI is None but AIA is not  
     aia_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))
     eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
-    image_callback = ImagePredictionLogger(aia_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
+    image_callback = ImagePredictionLoggerHMI(aia_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
 
 
 # Checkpoint callback
