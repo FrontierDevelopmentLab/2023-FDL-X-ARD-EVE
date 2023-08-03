@@ -523,7 +523,7 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
         self.ions = ions
         self.ions.sort()
 
-        # EVE is lways present (target values)
+        # EVE is always present (target values)
         self.eve_data = zarr.group(zarr.DirectoryStore(self.eve_path))
 
         # checking if AIA is in the dataset
