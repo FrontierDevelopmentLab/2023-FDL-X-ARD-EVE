@@ -1,3 +1,4 @@
+
 import argparse
 import os
 from pathlib import Path
@@ -106,7 +107,7 @@ if run_config['paths']['hmi_path'] is not None and run_config['paths']['aia_path
     eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
     hmi_aia_config = run_config["sci_parameters"]["hmi_components"] + run_config["sci_parameters"]["aia_wavelengths"] 
     image_callback = ImagePredictionLoggerHMI(hmi_aia_stack_val, eve_val, run_config["sci_parameters"]["eve_ions"], hmi_aia_config)
-
+    
 elif run_config['paths']['hmi_path'] is not None and run_config['paths']['aia_path'] is None:
     hmi_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))    
     eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))

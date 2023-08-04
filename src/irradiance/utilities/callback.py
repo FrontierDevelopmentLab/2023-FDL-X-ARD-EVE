@@ -166,71 +166,71 @@ class ImagePredictionLoggerHMI(Callback):
 
         # Bx
         plt.subplot(nrows,ncols,1)
-        plt.imshow(val_imgs[0], cmap = plt.get_cmap(cmap_dict['Bx']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,0], cmap = plt.get_cmap(cmap_dict['Bx']), vmin = 0, vmax = 1)
         plt.title('HMI - Bx')
 
         # By
         plt.subplot(nrows,ncols,2)
-        plt.imshow(val_imgs[1], cmap = plt.get_cmap(cmap_dict['By']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,1], cmap = plt.get_cmap(cmap_dict['By']), vmin = 0, vmax = 1)
         plt.title('HMI - By')
 
         # Bz
         plt.subplot(nrows,ncols,3)
-        plt.imshow(val_imgs[2], cmap = plt.get_cmap(cmap_dict['Bz']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,2], cmap = plt.get_cmap(cmap_dict['Bz']), vmin = 0, vmax = 1)
         plt.title('HMI - Bz')
 
         # 131A
         plt.subplot(nrows,ncols,4)
-        plt.imshow(val_imgs[3], cmap = plt.get_cmap(cmap_dict['131A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,3], cmap = plt.get_cmap(cmap_dict['131A']), vmin = 0, vmax = 1)
         plt.title('AIA - 131 Å')
 
         # 1600A
         plt.subplot(nrows,ncols,5)
-        plt.imshow(val_imgs[4], cmap = plt.get_cmap(cmap_dict['1600A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,4], cmap = plt.get_cmap(cmap_dict['1600A']), vmin = 0, vmax = 1)
         plt.title('AIA - 1600 Å')
 
         # 1700A
         plt.subplot(nrows,ncols,6)
-        plt.imshow(val_imgs[5], cmap = plt.get_cmap(cmap_dict['1700A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,5], cmap = plt.get_cmap(cmap_dict['1700A']), vmin = 0, vmax = 1)
         plt.title('AIA - 1700 Å')
 
         # 171A
         plt.subplot(nrows,ncols,7)
-        plt.imshow(val_imgs[6], cmap = plt.get_cmap(cmap_dict['171A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,6], cmap = plt.get_cmap(cmap_dict['171A']), vmin = 0, vmax = 1)
         plt.title('AIA - 171 Å')
 
         # 193A
         plt.subplot(nrows,ncols,8)
-        plt.imshow(val_imgs[7], cmap = plt.get_cmap(cmap_dict['193A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,7], cmap = plt.get_cmap(cmap_dict['193A']), vmin = 0, vmax = 1)
         plt.title('AIA - 193 Å')
 
         # 211A
         plt.subplot(nrows,ncols,9)
-        plt.imshow(val_imgs[8], cmap = plt.get_cmap(cmap_dict['211A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,8], cmap = plt.get_cmap(cmap_dict['211A']), vmin = 0, vmax = 1)
         plt.title('AIA - 211 Å')
 
         # 304A
         plt.subplot(nrows,ncols,10)
-        plt.imshow(val_imgs[9], cmap = plt.get_cmap(cmap_dict['304A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,9], cmap = plt.get_cmap(cmap_dict['304A']), vmin = 0, vmax = 1)
         plt.title('AIA - 304 Å')
 
         # 335A
         plt.subplot(nrows,ncols,11)
-        plt.imshow(val_imgs[10], cmap = plt.get_cmap(cmap_dict['335A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,10], cmap = plt.get_cmap(cmap_dict['335A']), vmin = 0, vmax = 1)
         plt.title('AIA - 335 Å')
 
         # 94A
         plt.subplot(nrows,ncols,12)
-        plt.imshow(val_imgs[11], cmap = plt.get_cmap(cmap_dict['94A']), vmin = 0, vmax = 1)
+        plt.imshow(val_imgs[0,11], cmap = plt.get_cmap(cmap_dict['94A']), vmin = 0, vmax = 1)
         plt.title('AIA - 94 Å')
 
         # EVE
         plt.subplot(nrows,1,nrows)
-        plt.bar(np.arange(0,len(val_eve)), val_eve[:], label='ground truth')
-        plt.bar(np.arange(0,len(pred_eve)), pred_eve[:], width = 0.5, label='prediction', alpha=0.5)
-        plt.xticks(np.arange(0,len(pred_eve)),["C III", "Fe IX", "Fe VIII", "Fe X", "Fe XI", "Fe XII", "Fe XIII", "Fe XIV", "Fe XIX", "Fe XV", "Fe XVI", "Fe XVIII", "Fe XX", "Fe XX_2", "Fe XX_3", "H I", "H I_2", "H I_3", "He I", "He II", "He II_2", "He I_2", "Mg IX", "Mg X", "Mg X_2", "Ne VII", "Ne VIII", "O II", "O III", "O III_2", "O II_2", "O IV", "O IV_2", "O V", "O VI", "S XIV", "Si XII", "Si XII_2"],rotation = 90)
+        plt.bar(np.arange(0,val_eve.shape[1]), val_eve[0,:], label='ground truth')
+        plt.bar(np.arange(0,val_eve.shape[1]), pred_eve[0,:], width = 0.5, label='prediction', alpha=0.5)
+        plt.xticks(np.arange(0,val_eve.shape[1]),["C III", "Fe IX", "Fe VIII", "Fe X", "Fe XI", "Fe XII", "Fe XIII", "Fe XIV", "Fe XIX", "Fe XV", "Fe XVI", "Fe XVIII", "Fe XX", "Fe XX_2", "Fe XX_3", "H I", "H I_2", "H I_3", "He I", "He II", "He II_2", "He I_2", "Mg IX", "Mg X", "Mg X_2", "Ne VII", "Ne VIII", "O II", "O III", "O III_2", "O II_2", "O IV", "O IV_2", "O V", "O VI", "S XIV", "Si XII", "Si XII_2"],rotation = 90)
         plt.yscale('log')
         
-        plt.tight_layout()
+        #plt.tight_layout()
         
         return fig

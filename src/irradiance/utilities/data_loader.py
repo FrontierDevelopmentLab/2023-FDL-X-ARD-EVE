@@ -424,8 +424,14 @@ class ZarrIrradianceDatasetHMI(Dataset):
         else:
             aia_image = self.get_aia_image(idx)
             eve_data = self.get_eve(idx)     
-            hmi_image = self.get_hmi_image(idx)       
-        return torch.cat((hmi_image, aia_image), axis=1), eve_data
+            hmi_image = self.get_hmi_image(idx) 
+            
+            #aia_image = torch.tensor(aia_image).permute(1,0,2)
+            #hmi_image = torch.tensor(hmi_image).permute(1,0,2) 
+
+            image_stack = np.concatenate((hmi_image, aia_image), axis=0)
+
+        return image_stack, eve_data
 
 
     def get_aia_image(self, idx):
