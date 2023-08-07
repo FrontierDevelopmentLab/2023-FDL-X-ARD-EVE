@@ -150,7 +150,7 @@ if run_config["training_parameters"]['hybrid_loop']:
         max_epochs=(run_config["training_parameters"]["ln_epochs"] + run_config["training_parameters"]["cnn_epochs"]),
         callbacks=[image_callback, checkpoint_callback, switch_mode_callback],
         logger=wandb_logger,
-        log_every_n_steps=1
+        log_every_n_steps=1,
         )
 
 else:
@@ -161,7 +161,7 @@ else:
         max_epochs=run_config["training_parameters"]["epochs"],
         callbacks=[image_callback, checkpoint_callback],
         logger=wandb_logger,
-        log_every_n_steps=10
+        log_every_n_steps=10,
         )
 
 # Train the model ⚡

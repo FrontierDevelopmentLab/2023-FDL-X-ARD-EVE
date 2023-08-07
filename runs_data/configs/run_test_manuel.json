@@ -1,5 +1,5 @@
 {
-    "run_name": "HMI_FULL_AIA_FULL_MEGS_FULL_15_15_epochs_360min",
+    "run_name": "HMI_FULL_AIA_FULL_MEGS_FULL_1_10_epochs_360min",
 	"wandb": {
 		"project": "fdl-x-2023",
 		"tags": ["MEGS_FULL", "AIA_FULL", "HMI_FULL", "12min", "1epochs", "efficientnet_b3", "ln", "hybrid_loop"],
@@ -23,13 +23,13 @@
 		"batch_size": 8,
 		"num_workers": 32,
 		"ln_model": true,
-		"ln_epochs": 15,
+		"ln_epochs": 1,
 		"ln_lr": 0.01,
 		"cnn_model": "efficientnet_b3",
 		"cnn_lr": 0.0001,
 		"cnn_dp": 0.25,
 		"hybrid_loop": true,
-		"cnn_epochs": 15,
+		"cnn_epochs": 10,
 		"epochs": 250,
 		"lr": 0.0001,
 		"random_seed": 3110,

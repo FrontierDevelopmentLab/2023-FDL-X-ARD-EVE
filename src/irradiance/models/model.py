@@ -334,6 +334,7 @@ class HybridIrradianceModel(LightningModule):
         #computing relative absolute error
         epsilon = sys.float_info.min
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
+        rae[rae>10] = 10
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
         # compute average cross-correlation
