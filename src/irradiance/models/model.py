@@ -51,14 +51,17 @@ class IrradianceModel(LightningModule):
         self.model = model
         self.loss_func = HuberLoss() # consider MSE
 
+
     def forward(self, x):
         x = self.model(x)
         return x
+
 
     def forward_unnormalize(self, x):
         x = self.forward(x)
         return unnormalize(x, self.eve_norm)
         
+
     def training_step(self, batch, batch_nb):
         x, y = batch
         y_pred = self(x)
@@ -67,11 +70,12 @@ class IrradianceModel(LightningModule):
         y = unnormalize(y, self.eve_norm)
         y_pred = unnormalize(y_pred, self.eve_norm)
 
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         return loss
+
 
     def validation_step(self, batch, batch_nb):
         x, y = batch
@@ -82,7 +86,7 @@ class IrradianceModel(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
@@ -98,6 +102,7 @@ class IrradianceModel(LightningModule):
         self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
+
 
     def test_step(self, batch, batch_nb):
         x, y = batch
@@ -108,7 +113,7 @@ class IrradianceModel(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
@@ -125,9 +130,9 @@ class IrradianceModel(LightningModule):
 
         return loss
 
+
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
-
 
 
 class LinearIrradianceModel(LightningModule):
@@ -141,11 +146,13 @@ class LinearIrradianceModel(LightningModule):
         self.model = nn.Linear(2*self.n_channels, self.outSize)
         self.loss_func = HuberLoss() # consider MSE
 
+
     def forward(self, x):
         mean_irradiance = torch.mean(x, dim=(2,3))
         std_irradiance = torch.std(x, dim=(2,3))
         x = self.model(torch.cat((mean_irradiance, std_irradiance), dim=1))
         return x
+
 
     def forward_unnormalize(self, x):
         mean_irradiance = torch.mean(x, dim=(2,3))
@@ -153,6 +160,7 @@ class LinearIrradianceModel(LightningModule):
         x = self.model(torch.cat((mean_irradiance, std_irradiance), dim=1))
         return unnormalize(x, self.eve_norm)
         
+
     def training_step(self, batch, batch_nb):
         x, y = batch
         y_pred = self(x)
@@ -161,11 +169,12 @@ class LinearIrradianceModel(LightningModule):
         y = unnormalize(y, self.eve_norm)
         y_pred = unnormalize(y_pred, self.eve_norm)
 
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         return loss
+
 
     def validation_step(self, batch, batch_nb):
         x, y = batch
@@ -176,7 +185,7 @@ class LinearIrradianceModel(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
@@ -192,6 +201,7 @@ class LinearIrradianceModel(LightningModule):
         self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
+
 
     def test_step(self, batch, batch_nb):
         x, y = batch
@@ -202,7 +212,7 @@ class LinearIrradianceModel(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
@@ -218,6 +228,7 @@ class LinearIrradianceModel(LightningModule):
         self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
+
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-2)
@@ -284,7 +295,7 @@ class HybridIrradianceModel(LightningModule):
         y = unnormalize(y, self.eve_norm)
         y_pred = unnormalize(y_pred, self.eve_norm)
 
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         
         # Logging
@@ -303,7 +314,7 @@ class HybridIrradianceModel(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         #rae[rae>10] = 10
         av_rae = rae.mean()
@@ -335,7 +346,7 @@ class HybridIrradianceModel(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
@@ -433,7 +444,7 @@ class ChoppedAlexnetBN(LightningModule):
         y = unnormalize(y, self.eve_norm)
         y_pred = unnormalize(y_pred, self.eve_norm)
 
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
@@ -448,7 +459,7 @@ class ChoppedAlexnetBN(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
@@ -474,7 +485,7 @@ class ChoppedAlexnetBN(LightningModule):
         y_pred = unnormalize(y_pred, self.eve_norm)
 
         #computing relative absolute error
-        epsilon = sys.float_info.min
+        epsilon = sys.float_info.epsilon
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
