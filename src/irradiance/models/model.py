@@ -44,8 +44,7 @@ class IrradianceModel(LightningModule):
         classifier = nn.Sequential(nn.Dropout(p=dp, inplace=True),
                                    nn.Linear(in_features=lin_in, out_features=d_output, bias=True))
         model.classifier = classifier
-        # set all dropouts to 0.75
-        # TODO: other dropout values?
+       
         for m in model.modules():
             if m.__class__.__name__.startswith('Dropout'):
                 m.p = dp
@@ -130,124 +129,6 @@ class IrradianceModel(LightningModule):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
 
 
-class ChoppedAlexnetBN(LightningModule):
-
-    # def __init__(self, numlayers, n_channels, outSize, dropout):
-    def __init__(self, d_input, d_output, eve_norm, numLayers=3, dropout=0):
-        super(ChoppedAlexnetBN, self).__init__()
-        self.eve_norm = eve_norm
-        self.numLayers = numLayers
-        self.n_channels = d_input
-        self.outSize = d_output
-        self.loss_func = HuberLoss() # consider MSE
-
-        layers, channelSize = self.getLayers(self.numLayers, self.n_channels)
-        self.features = nn.Sequential(*layers)
-        self.pool = nn.AdaptiveAvgPool2d((1,1))
-
-        self.model = nn.Sequential(nn.Dropout(p=dropout),
-                                   nn.Linear(channelSize, self.outSize))
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
-    def getLayers(self, numLayers, n_channels):
-        """Returns a list of layers + the feature size coming out"""
-        layers = [nn.Conv2d(n_channels, 64, kernel_size=11, stride=4, padding=2), nn.BatchNorm2d(64), nn.ReLU(inplace=True), ]
-        if numLayers == 1:
-            return (layers, 64)
-        layers += [nn.MaxPool2d(kernel_size=3, stride=2), nn.Conv2d(64, 192, kernel_size=5, padding=2), nn.BatchNorm2d(192), nn.ReLU(inplace=True), ]
-        if numLayers == 2:
-            return (layers, 192)
-        layers += [nn.MaxPool2d(kernel_size=3, stride=2), nn.Conv2d(192, 384, kernel_size=3, padding=1), nn.BatchNorm2d(384), nn.ReLU(inplace=True)]
-        if numLayers == 3:
-            return (layers,384)
-
-        layers += [nn.Conv2d(384, 256, kernel_size=3, padding=1), nn.ReLU(inplace=True), nn.BatchNorm2d(256)]
-        return (layers,256)
-
-    def forward(self, x):
-        x = self.features(x)
-        x = self.pool(x).view(x.size(0),-1)
-        x = self.model(x)
-        return x
-    
-    def forward_unnormalize(self, x):
-        x = self.forward(x)
-        return unnormalize(x, self.eve_norm)
-        
-    def training_step(self, batch, batch_nb):
-        x, y = batch
-        y_pred = self(x)
-        loss = self.loss_func(y_pred, y)
-
-        y = unnormalize(y, self.eve_norm)
-        y_pred = unnormalize(y_pred, self.eve_norm)
-
-        epsilon = sys.float_info.min
-        rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        return loss
-
-    def validation_step(self, batch, batch_nb):
-        x, y = batch
-        y_pred = self(x)
-        loss = self.loss_func(y_pred, y)
-
-        y = unnormalize(y, self.eve_norm) 
-        y_pred = unnormalize(y_pred, self.eve_norm)
-
-        #computing relative absolute error
-        epsilon = sys.float_info.min
-        rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
-        av_rae = rae.mean()
-        av_rae_wl = rae.mean(0)
-        # compute average cross-correlation
-        cc = torch.tensor([torch.corrcoef(torch.stack([y[i], y_pred[i]]))[0, 1] for i in range(y.shape[0])]).mean()
-        # mean absolute error
-        mae = torch.abs(y - y_pred).mean()
-
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-
-        return loss
-    
-    def test_step(self, batch, batch_nb):
-        x, y = batch
-        y_pred = self(x)
-        loss = self.loss_func(y_pred, y)
-
-        y = unnormalize(y, self.eve_norm) 
-        y_pred = unnormalize(y_pred, self.eve_norm)
-
-        #computing relative absolute error
-        epsilon = sys.float_info.min
-        rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
-        av_rae = rae.mean()
-        av_rae_wl = rae.mean(0)
-        # compute average cross-correlation
-        cc = torch.tensor([torch.corrcoef(torch.stack([y[i], y_pred[i]]))[0, 1] for i in range(y.shape[0])]).mean()
-        # mean absolute error
-        mae = torch.abs(y - y_pred).mean()
-
-        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
-        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-
-    
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-4)
-    
 
 class LinearIrradianceModel(LightningModule):
 
@@ -366,7 +247,6 @@ class HybridIrradianceModel(LightningModule):
         efficientnets = ['efficientnet_b0', 'efficientnet_b1', 'efficientnet_b2', 'efficientnet_b3',
                           'efficientnet_b4', 'efficientnet_b5', 'efficientnet_b6', 'efficientnet_b7']
         self.cnn_model = None
-        self.cnn_lambda = 1.
         if cnn_model == 'resnet':
             self.cnn_model = ChoppedAlexnetBN(d_input, d_output, eve_norm)
         elif cnn_model in efficientnets:
@@ -410,7 +290,7 @@ class HybridIrradianceModel(LightningModule):
         # Logging
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('train_lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         return loss
 
 
@@ -438,6 +318,7 @@ class HybridIrradianceModel(LightningModule):
         self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
         self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('valid_lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -489,4 +370,123 @@ class HybridIrradianceModel(LightningModule):
             self.ln_model.unfreeze()
         else:
             raise NotImplemented(f'Mode not supported: {mode}')
+    
+
+class ChoppedAlexnetBN(LightningModule):
+
+    # def __init__(self, numlayers, n_channels, outSize, dropout):
+    def __init__(self, d_input, d_output, eve_norm, numLayers=3, dropout=0):
+        super(ChoppedAlexnetBN, self).__init__()
+        self.eve_norm = eve_norm
+        self.numLayers = numLayers
+        self.n_channels = d_input
+        self.outSize = d_output
+        self.loss_func = HuberLoss() # consider MSE
+
+        layers, channelSize = self.getLayers(self.numLayers, self.n_channels)
+        self.features = nn.Sequential(*layers)
+        self.pool = nn.AdaptiveAvgPool2d((1,1))
+
+        self.model = nn.Sequential(nn.Dropout(p=dropout),
+                                   nn.Linear(channelSize, self.outSize))
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def getLayers(self, numLayers, n_channels):
+        """Returns a list of layers + the feature size coming out"""
+        layers = [nn.Conv2d(n_channels, 64, kernel_size=11, stride=4, padding=2), nn.BatchNorm2d(64), nn.ReLU(inplace=True), ]
+        if numLayers == 1:
+            return (layers, 64)
+        layers += [nn.MaxPool2d(kernel_size=3, stride=2), nn.Conv2d(64, 192, kernel_size=5, padding=2), nn.BatchNorm2d(192), nn.ReLU(inplace=True), ]
+        if numLayers == 2:
+            return (layers, 192)
+        layers += [nn.MaxPool2d(kernel_size=3, stride=2), nn.Conv2d(192, 384, kernel_size=3, padding=1), nn.BatchNorm2d(384), nn.ReLU(inplace=True)]
+        if numLayers == 3:
+            return (layers,384)
+
+        layers += [nn.Conv2d(384, 256, kernel_size=3, padding=1), nn.ReLU(inplace=True), nn.BatchNorm2d(256)]
+        return (layers,256)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.pool(x).view(x.size(0),-1)
+        x = self.model(x)
+        return x
+    
+    def forward_unnormalize(self, x):
+        x = self.forward(x)
+        return unnormalize(x, self.eve_norm)
+        
+    def training_step(self, batch, batch_nb):
+        x, y = batch
+        y_pred = self(x)
+        loss = self.loss_func(y_pred, y)
+
+        y = unnormalize(y, self.eve_norm)
+        y_pred = unnormalize(y_pred, self.eve_norm)
+
+        epsilon = sys.float_info.min
+        rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_RAE", rae.mean(), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        return loss
+
+    def validation_step(self, batch, batch_nb):
+        x, y = batch
+        y_pred = self(x)
+        loss = self.loss_func(y_pred, y)
+
+        y = unnormalize(y, self.eve_norm) 
+        y_pred = unnormalize(y_pred, self.eve_norm)
+
+        #computing relative absolute error
+        epsilon = sys.float_info.min
+        rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
+        av_rae = rae.mean()
+        av_rae_wl = rae.mean(0)
+        # compute average cross-correlation
+        cc = torch.tensor([torch.corrcoef(torch.stack([y[i], y_pred[i]]))[0, 1] for i in range(y.shape[0])]).mean()
+        # mean absolute error
+        mae = torch.abs(y - y_pred).mean()
+
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+
+        return loss
+    
+    def test_step(self, batch, batch_nb):
+        x, y = batch
+        y_pred = self(x)
+        loss = self.loss_func(y_pred, y)
+
+        y = unnormalize(y, self.eve_norm) 
+        y_pred = unnormalize(y_pred, self.eve_norm)
+
+        #computing relative absolute error
+        epsilon = sys.float_info.min
+        rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
+        av_rae = rae.mean()
+        av_rae_wl = rae.mean(0)
+        # compute average cross-correlation
+        cc = torch.tensor([torch.corrcoef(torch.stack([y[i], y_pred[i]]))[0, 1] for i in range(y.shape[0])]).mean()
+        # mean absolute error
+        mae = torch.abs(y - y_pred).mean()
+
+        self.log("valid_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_MAE", mae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("valid_RAE", av_rae, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
+        self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+
+    
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=1e-4)
     

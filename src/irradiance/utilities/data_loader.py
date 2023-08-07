@@ -730,6 +730,7 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
         join_series.to_csv(self.index_cache_filename)        
         
         return join_series
+
     
     def __calc_normalizations(self):
 
@@ -778,7 +779,8 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
             [normalizations_eve[key]["std"] for key in normalizations_eve.keys()]
         ]
         return normalizations_eve
-        
+
+
     def __calc_aia_normalizations(self, normalizations_align) -> dict:
         normalizations_aia = {}
 
@@ -823,6 +825,7 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
             
         return normalizations_aia
 
+
     def __calc_hmi_normalizations(self, normalizations_align) -> dict:
         normalizations_hmi = {}
 
@@ -866,6 +869,7 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
             
             
         return normalizations_hmi
+
 
     def setup(self, stage=None):
 

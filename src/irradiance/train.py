@@ -138,7 +138,8 @@ if run_config["training_parameters"]['hybrid_loop']:
     model.lr = run_config["training_parameters"]["ln_lr"]
     switch_mode_callback = LambdaCallback(
         on_train_epoch_start=(
-            lambda trainer, pl_module: model.set_train_mode("cnn") if trainer.current_epoch > run_config["training_parameters"]["ln_epochs"] else None
+            lambda trainer, 
+            pl_module: model.set_train_mode("cnn") if trainer.current_epoch > run_config["training_parameters"]["ln_epochs"] else None
         )
     )
 
@@ -149,7 +150,7 @@ if run_config["training_parameters"]['hybrid_loop']:
         max_epochs=(run_config["training_parameters"]["ln_epochs"] + run_config["training_parameters"]["cnn_epochs"]),
         callbacks=[image_callback, checkpoint_callback, switch_mode_callback],
         logger=wandb_logger,
-        log_every_n_steps=10
+        log_every_n_steps=1
         )
 
 else:
