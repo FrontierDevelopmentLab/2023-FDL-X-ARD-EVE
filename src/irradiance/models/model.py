@@ -305,6 +305,7 @@ class HybridIrradianceModel(LightningModule):
         #computing relative absolute error
         epsilon = sys.float_info.min
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
+        #rae[rae>10] = 10
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
         # compute average cross-correlation
@@ -319,6 +320,8 @@ class HybridIrradianceModel(LightningModule):
         [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
         self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log('valid_lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('max_y', max(y), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('min_y', min(y), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
@@ -334,7 +337,6 @@ class HybridIrradianceModel(LightningModule):
         #computing relative absolute error
         epsilon = sys.float_info.min
         rae = torch.abs((y - y_pred) / (torch.abs(y) + epsilon)) * 100
-        rae[rae>10] = 10
         av_rae = rae.mean()
         av_rae_wl = rae.mean(0)
         # compute average cross-correlation

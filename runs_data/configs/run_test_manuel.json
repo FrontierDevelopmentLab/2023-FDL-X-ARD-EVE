@@ -1,8 +1,8 @@
 {
-    "run_name": "HMI_FULL_AIA_FULL_MEGS_FULL_1_10_epochs_360min",
+    "run_name": "HMI_FULL_AIA_FULL_MEGS_FULL_1_10_epochs_360min_clipGRADIENT",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"tags": ["MEGS_FULL", "AIA_FULL", "HMI_FULL", "12min", "1epochs", "efficientnet_b3", "ln", "hybrid_loop"],
+		"tags": ["MEGS_FULL", "AIA_FULL", "HMI_FULL", "360min", "1epochs", "efficientnet_b3", "ln", "hybrid_loop"],
 		"notes": "Full training run of eve pipeline with full AIA, HMI and MEGS spectrums."
 	},
 	"paths": {

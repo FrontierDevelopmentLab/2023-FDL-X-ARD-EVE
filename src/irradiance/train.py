@@ -151,6 +151,7 @@ if run_config["training_parameters"]['hybrid_loop']:
         callbacks=[image_callback, checkpoint_callback, switch_mode_callback],
         logger=wandb_logger,
         log_every_n_steps=1,
+        gradient_clip_val=0.5,
         )
 
 else:
@@ -162,6 +163,7 @@ else:
         callbacks=[image_callback, checkpoint_callback],
         logger=wandb_logger,
         log_every_n_steps=10,
+        gradient_clip_val=0.5,
         )
 
 # Train the model ⚡
