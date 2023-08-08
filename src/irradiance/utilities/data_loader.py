@@ -81,9 +81,6 @@ class ZarrIrradianceDatasetHMI(Dataset):
             eve_data = self.get_eve(idx)     
             hmi_image = self.get_hmi_image(idx) 
             
-            #aia_image = torch.tensor(aia_image).permute(1,0,2)
-            #hmi_image = torch.tensor(hmi_image).permute(1,0,2) 
-
             image_stack = np.concatenate((hmi_image, aia_image), axis=0)
 
         return image_stack, eve_data
@@ -259,29 +256,6 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
             return aligndata
         print(f"\nData alignment calculation begin:")
         print("-"*50)
-
-        # join_series = pd.DataFrame()
-        # for wavelength in self.wavelengths:
-        #     df_t_aia = pd.DataFrame()
-
-        #     for key in self.aia_data.keys():
-        #         aia_channel = self.aia_data[key][wavelength]
-
-        #         # Get observation time
-        #         t_obs_aia_channel = aia_channel.attrs['T_OBS']
-
-        #         df_tmp_aia = pd.DataFrame({'Time': pd.to_datetime(t_obs_aia_channel, format='mixed'), f"idx_{wavelength}": np.arange(0, len(t_obs_aia_channel))})
-        #         df_t_aia = pd.concat([df_t_aia, df_tmp_aia], ignore_index=True)
-
-        #     # Enforcing same datetime format
-        #     df_t_aia['Time'] = pd.to_datetime(df_t_aia['Time'], format='mixed').dt.tz_localize(None).dt.round(self.cadence).sort_values()
-        #     df_t_obs_aia = df_t_aia.drop_duplicates(subset='Time', keep='first').set_index('Time')
-
-        #     if wavelength == self.wavelengths[0]:
-        #         join_series = df_t_obs_aia
-        #     else:
-        #         join_series = join_series.join(df_t_obs_aia, how='inner')
-
 
         if self.isAIA:
 

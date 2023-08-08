@@ -33,6 +33,7 @@ wandb_logger = WandbLogger(
     config=run_config
 )
 
+# Setting seed for reproducibility
 random_seed = run_config["training_parameters"]["random_seed"]
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
@@ -55,9 +56,16 @@ data_loader = ZarrIrradianceDataModuleHMI(
 )
 data_loader.setup()
 
+# set model input dimension
+if run_config['paths']['aia_path'] is not None and run_config['paths']['hmi_path'] is not None:
+    in_features = len(run_config["sci_parameters"]["aia_wavelengths"]) + len(run_config["sci_parameters"]["hmi_components"])
+elif run_config['paths']['aia_path'] is None and run_config['paths']['hmi_path'] is not None:
+    in_features = len(run_config["sci_parameters"]["hmi_components"])
+else:
+    in_features = len(run_config["sci_parameters"]["aia_wavelengths"])
 
 model = HybridIrradianceModel(
-        d_input=len(run_config["sci_parameters"]["aia_wavelengths"]) + len(run_config["sci_parameters"]["hmi_components"]),
+        d_input=in_features,
         d_output=len(run_config["sci_parameters"]["eve_ions"]),
         eve_norm=np.array(data_loader.normalizations["EVE"]["eve_norm"], dtype=np.float32), 
         cnn_model=run_config["training_parameters"]["cnn_model"],
@@ -70,21 +78,22 @@ model = HybridIrradianceModel(
 total_n_valid = data_loader.valid_ds.aligndata.shape[0]
 val_data = [data_loader.valid_ds.__getitem__(idx) for idx in range(0, total_n_valid, total_n_valid//4)]
 
-if run_config['paths']['hmi_path'] is not None and run_config['paths']['aia_path'] is not None:
+# 3 options: 1) HMI+AIA, 2) just HMI oand 3) just AIA 
+if run_config['paths']['aia_path'] is not None and run_config['paths']['hmi_path'] is not None:
     hmi_aia_stack_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))    
     eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
     hmi_aia_config = run_config["sci_parameters"]["hmi_components"] + run_config["sci_parameters"]["aia_wavelengths"] 
-    image_callback = ImagePredictionLoggerHMI(hmi_aia_stack_val, eve_val, run_config["sci_parameters"]["eve_ions"], hmi_aia_config)
+    image_callback = ImagePredictionLoggerHMI(hmi_aia_stack_val, eve_val, run_config["sci_parameters"]["eve_ions"], hmi_aia_config, run_config['paths']['hmi_path'], run_config['paths']['aia_path'])
     
-elif run_config['paths']['hmi_path'] is not None and run_config['paths']['aia_path'] is None:
+elif run_config['paths']['aia_path'] is None and run_config['paths']['hmi_path'] is not None:
     hmi_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))    
     eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
-    image_callback = ImagePredictionLoggerHMI(hmi_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["hmi_components"])
+    image_callback = ImagePredictionLoggerHMI(hmi_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["hmi_components"], run_config['paths']['hmi_path'], run_config['paths']['aia_path'])
 
 else: # HMI is None but AIA is not  
     aia_val = torch.tensor(np.array([val_data[idx][0] for idx, _ in enumerate(val_data)]))
     eve_val = torch.tensor(np.array([val_data[idx][1] for idx, _ in enumerate(val_data)]))
-    image_callback = ImagePredictionLoggerHMI(aia_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"])
+    image_callback = ImagePredictionLoggerHMI(aia_val, eve_val, run_config["sci_parameters"]["eve_ions"], run_config["sci_parameters"]["aia_wavelengths"], run_config['paths']['hmi_path'], run_config['paths']['aia_path'])
 
 
 checkpoint_path = f"{PROJECT_DIR}/{run_config['paths']['checkpoint_path']}/{run_config['run_name']}"
@@ -96,6 +105,7 @@ checkpoint_callback = ModelCheckpoint(
     filename=run_config["paths"]["checkpoint_file_name"]
 )
 
+# Linear model trained first, then the CNN
 model.set_train_mode("linear")
 switch_mode_callback = LambdaCallback(
     on_train_epoch_start=(
