@@ -95,8 +95,8 @@ model = HybridIrradianceModel(
         eve_norm=np.array(data_loader.normalizations["EVE"]["eve_norm"]), 
         cnn_model=run_config["training_parameters"]['cnn_model'], 
         ln_model=run_config["training_parameters"]['ln_model'],
-        cnn_dp=run_config["training_parameters"]['cnn_dp'],
-        lr=run_config["training_parameters"]['lr']
+        lr=run_config["training_parameters"]['lr'],
+        cnn_dp=run_config["training_parameters"]['cnn_dp']
 )
 
 # Plot callback

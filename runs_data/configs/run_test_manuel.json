@@ -1,5 +1,5 @@
 {
-    "run_name": "HMI_FULL_AIA_FULL_MEGS_FULL_1_10_epochs_360min_clipGRADIENT",
+    "run_name": "HMI_FULL_AIA_FULL_MEGS_FULL_1_10_epochs_360min_clipGRADIENT_newepsilon_nodrop",
 	"wandb": {
 		"project": "fdl-x-2023",
 		"tags": ["MEGS_FULL", "AIA_FULL", "HMI_FULL", "360min", "1epochs", "efficientnet_b3", "ln", "hybrid_loop"],
@@ -27,7 +27,7 @@
 		"ln_lr": 0.01,
 		"cnn_model": "efficientnet_b3",
 		"cnn_lr": 0.0001,
-		"cnn_dp": 0.25,
+		"cnn_dp": 0,
 		"hybrid_loop": true,
 		"cnn_epochs": 10,
 		"epochs": 250,

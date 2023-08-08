@@ -237,7 +237,7 @@ class LinearIrradianceModel(LightningModule):
 class HybridIrradianceModel(LightningModule):
 
     def __init__(self, d_input, d_output, eve_norm, cnn_model='resnet', 
-                 ln_model=True, ln_params=None, lr=1e-4, cnn_dp=0.75):
+                 ln_model=True, lr=1e-4, cnn_dp=0.75, ln_params=None):
         
         super().__init__()
         self.eve_norm = eve_norm
@@ -331,8 +331,8 @@ class HybridIrradianceModel(LightningModule):
         [self.log(f"valid_RAE_{i}", err, on_epoch=True, prog_bar=True, logger=True, sync_dist=True) for i, err in enumerate(av_rae_wl)]
         self.log("valid_correlation_coefficient", cc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         self.log('valid_lambda_cnn', float(self.cnn_lambda), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('max_y', max(y), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('min_y', min(y), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #self.log('max_y', max(y), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #self.log('min_y', min(y), on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
