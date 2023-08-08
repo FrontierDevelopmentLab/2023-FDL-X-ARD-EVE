@@ -140,7 +140,6 @@ class ZarrIrradianceDatasetHMI(Dataset):
         return output
 
 
-
 class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
     """ Loads paired data samples of AIA EUV images and EVE irradiance measures.
 
@@ -318,6 +317,8 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
                 else:
                     join_series = join_series.join(df_t_obs_aia, how='inner')
 
+            print(f"AIA alignment completed with {join_series.shape[0]} samples.")
+
 # ----------------------------------------------------------------------------------------------------------------------------------
         
         if self.isHMI:
@@ -363,6 +364,8 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
 
             else:
                 join_series = df_t_obs_hmi
+            
+        print(f"HMI alignment completed with {join_series.shape[0]} samples.")
 
 # ---------------------------------------------------------------------------------------------------------------------------------------
         
@@ -380,7 +383,11 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
 
         join_series.sort_index(inplace=True)
         
-        print(f"Alignment completed with {join_series.shape[0]} samples.")
+        print("")
+        print("#"*50)
+        print(f"[*] Total Alignment Completed with {join_series.shape[0]} Samples.")
+        print("#"*50)
+        print("")
         # creating csv dataset
         join_series.to_csv(self.index_cache_filename)        
         
