@@ -1,15 +1,15 @@
 {
-    "run_name": "HMI_FULL_MEGS_FULL_20_30_epochs_60min",
+    "run_name": "AIA_HMI_MEGS_40_60_epochs_60min",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"tags": ["MEGS_FULL", "HMI_FULL", "60min", "20_ln_epochs", "30_cnn_epochs", "efficientnet_b3", "dp_0.2"],
-		"notes": "Full training run of eve pipeline with full HMI and MEGS spectrums."
+		"tags": ["MEGS_FULL", "HMI_FULL", "60min", "40_ln_epochs", "60_cnn_epochs", "efficientnet_b3", "dp_0.2"],
+		"notes": "Full HMI and full AIA predicting full MEGS spectrums at 60 minute cadence."
 	},
 	"paths": {
 		"checkpoint_path": "runs_data/checkpoints",
 		"checkpoint_file_name": "best_model",
         "hmi_path": "/mnt/sdomlv2_hmi/sdomlv2_hmi.zarr",
-		"aia_path": null,
+		"aia_path": "/mnt/sdomlv2_full/sdomlv2.zarr",
 		"eve_path": "/mnt/sdomlv2_small/sdomlv2_eve.zarr",
 		"cache_directory": "runs_data/cache"
 	},
@@ -20,14 +20,14 @@
 		"frequency": "60min"
 	},
 	"training_parameters": {
-		"batch_size": 16,
+		"batch_size": 12,
 		"num_workers": 16,
-		"ln_epochs": 20,
+		"ln_epochs": 40,
 		"lr_linear": 0.01,
 		"cnn_model": "efficientnet_b3",
 		"lr_cnn": 0.0001,
 		"cnn_dp": 0.2,
-		"cnn_epochs": 30,
+		"cnn_epochs": 60,
 		"random_seed": 3110,
 		"val_months": [2, 3],
 		"test_months": [11, 12],
