@@ -1,4 +1,3 @@
-import argparse
 import os
 import numpy as np
 import torch
@@ -7,14 +6,14 @@ from tqdm import tqdm
 import zarr
 from datetime import datetime
 
-from fastapi import FastAPI
-app = FastAPI()
+# from fastapi import FastAPI
+# app = FastAPI()
 
 
 class IrradianceInferenceModel:
     def __init__(self):
         # os.getenv("checkpoint_location")
-        checkpoint_path = "/home/richardagalvez/2023-FDL-X-ARD-EVE/runs_data/checkpoints/AIA_FULL_MEGS_FULL_30_50_epochs_30min/best_model_normalizations.ckpt" 
+        checkpoint_path = "/home/richardagalvez/2023-FDL-X-ARD-EVE/runs_data/checkpoints/AIA_FULL_MEGS_FULL_30min/best_model.ckpt" 
         state = torch.load(checkpoint_path)
         self.model = state["model"]
         self.model.eval()
@@ -24,7 +23,7 @@ class IrradianceInferenceModel:
         self.eve_ions.sort()
         self.aia_normalizations = state["normalizations"]["AIA"]
 
-        self.aia_data = zarr.group(zarr.DirectoryStore("/mnt/sdomlv2_full/sdomlv2.zarr"))
+        self.aia_data = zarr.group(zarr.DirectoryStore("/mnt/sdomlv2_small/sdomlv2_small.zarr"))
 
 
     def predict(self, aia_image, forward_passes=0):
@@ -58,6 +57,8 @@ class IrradianceInferenceModel:
         for m in self.model.modules():
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
+
+inference_model = IrradianceInferenceModel()
 
 
 def run_one_off_inferences():
