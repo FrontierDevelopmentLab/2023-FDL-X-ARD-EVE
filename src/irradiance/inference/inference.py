@@ -4,9 +4,11 @@ import numpy as np
 import torch
 import pandas as pd
 from tqdm import tqdm
+import zarr
+from datetime import datetime
 
-# from fastapi import FastAPI
-# app = FastAPI()
+from fastapi import FastAPI
+app = FastAPI()
 
 
 class IrradianceInferenceModel:
@@ -57,8 +59,6 @@ class IrradianceInferenceModel:
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
 
-import zarr
-from datetime import datetime
 
 def run_one_off_inferences():
 
@@ -77,10 +77,8 @@ def run_one_off_inferences():
         pred_irradiance.to_parquet(f"/home/jupyter/output_inferences/run1/pred_irradiance_{year}.parquet")
         print(f"Saved year: {year}, shape: {pred_irradiance.shape}")
 
-run_one_off_inferences()
 
 # @app.get("/")
 # async def root():
 #     return {"message": "Hello World"}
-
 
