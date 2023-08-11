@@ -1,14 +1,14 @@
 {
-    "run_name": "AIA_MEGS_20_30_epochs_36min",
+    "run_name": "AIA_HMI_MEGS_20_30_epochs_36min",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"tags": ["MEGS_FULL", "AIA_FULL", "36min", "20_ln_epochs", "30_cnn_epochs", "efficientnet_b3", "dp_0.2", "linear lr: .001"],
-		"notes": "Full AIA predicting full MEGS spectrums at 36 minute cadence."
+		"tags": ["MEGS_FULL", "AIA_FULL", "HMI_FULL", "36min", "20_ln_epochs", "30_cnn_epochs", "efficientnet_b3", "dp_0.2", "linear lr: .001"],
+		"notes": "Full AIA and HMI predicting full MEGS spectrums at 36 minute cadence."
 	},
 	"paths": {
 		"checkpoint_path": "runs_data/checkpoints",
 		"checkpoint_file_name": "best_model",
-        "hmi_path": null,
+        "hmi_path": "/mnt/sdomlv2_hmi/sdomlv2_hmi.zarr",
 		"aia_path": "/mnt/sdomlv2_full/sdomlv2.zarr",
 		"eve_path": "/mnt/sdomlv2_small/sdomlv2_eve.zarr",
 		"cache_directory": "runs_data/cache"
