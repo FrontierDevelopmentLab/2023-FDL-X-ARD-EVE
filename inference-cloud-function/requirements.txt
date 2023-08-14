@@ -7,3 +7,4 @@ tqdm
 gcsfs
 google-cloud-bigquery
 google-cloud-storage
+db-dtypes

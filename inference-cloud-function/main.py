@@ -8,43 +8,11 @@ import google.cloud.bigquery as bq
 from datetime import datetime
 import functions_framework
 
-from model import HybridIrradianceModel
-
-
-with open("normalizations.json", "r") as f:
-    normalizations = json.load(f)
-
-eve_norm = np.array(normalizations["EVE"]["eve_norm"], dtype=np.float32)
-
-model = HybridIrradianceModel(
-        d_input=9,
-        d_output=38,
-        eve_norm=eve_norm,
-        cnn_model="efficientnet_b3",
-        lr_linear=0.01,
-        lr_cnn=0.0001,
-        cnn_dp=0.2
-)
-
 
 class IrradianceInferenceModel:
     def __init__(self):
         with open("inference_config.json", "r") as f:
             self.config = json.load(f)
-
-        with open(self.config["inference_model"]["normalizations_path"], "r") as f:
-            self.normalizations = json.load(f)
-        
-        self.model = HybridIrradianceModel(
-                d_input=9,
-                d_output=38,
-                eve_norm=np.array(self.normalizations["EVE"]["eve_norm"], dtype=np.float32), 
-                cnn_model="efficientnet_b3",
-                lr_linear=0.01,
-                lr_cnn=0.0001,
-                cnn_dp=0.2
-        )
-        self.model.load_state_dict(torch.load(self.config["inference_model"]["checkpoint_path"])["model"])
         
         self.model_config = self.config["inference_model"]
         self.cloud_config = self.config["gcp_config"]
@@ -61,7 +29,6 @@ class IrradianceInferenceModel:
         self.aia_normalizations = state["normalizations"]["AIA"]
 
         self.aia_root = self.get_zarr_root(bucket=self.cloud_config["zarr_bucket"], path=self.cloud_config["aia_path"])
-        # self.hmi_root = self.get_zarr_root(bucket=self.cloud_config["zarr_bucket"], path=self.cloud_config["hmi_path"])
         self.bq_client = bq.Client(project=self.cloud_config["gcp_project"], location=self.cloud_config["gcp_region"])
 
         self.sql_column_order = ["timestamp", "inference_time", "model_name"] + self.eve_ions
@@ -146,32 +113,30 @@ class IrradianceInferenceModel:
                 m.train()
 
 
-
-inference_model = IrradianceInferenceModel()
-prediction = inference_model.predict("2010-05-13T01:48:00")
-print(prediction)
-
+# time="2010-05-13T01:48:00"
+# inference_model = IrradianceInferenceModel()
+# prediction = inference_model.predict(time)
 # result = inference_model.write_to_bq(prediction)
 # print(result)
 
 
-# @functions_framework.http
-# def hello_http(request):
+@functions_framework.http
+def hello_http(request):
 
-#     message_json = request.get_json(silent=True)
-#     message_args = request.args
-#     print(message_json)
-#     time = message_json["time"]
+    message_json = request.get_json(silent=True)
+    message_args = request.args
+    print(message_json)
 
-#     inference_model = IrradianceInferenceModel()
-#     prediction = inference_model.predict(time)
-#     result = inference_model.write_to_bq(prediction)
-#     print(result)
+    # time = message_json["time"]
+    # inference_model = IrradianceInferenceModel()
+    # prediction = inference_model.predict(time)
+    # result = inference_model.write_to_bq(prediction)
+    # print(result)
 
-#     response = {
-#         "status": "OK",
-#         "message": "The message was properly received.",
-#         "data": message_json
-#     }
+    response = {
+        "status": "OK",
+        "message": "The message was properly received.",
+        "data": message_json
+    }
 
-#     return response
+    return response
