@@ -34,8 +34,6 @@ class IrradianceInferenceModel:
 
 
     def get_zarr_root(self, bucket: str, path: str) -> zarr.hierarchy.Group:
-        print(f"Connecting to zarr root in path: {path} and bucket: {bucket}")
-
         gcp_zarr = gcsfs.GCSFileSystem(project=self.cloud_config["gcp_project"], bucket=bucket, access="read_only", requester_pays=True)
         store = gcsfs.GCSMap(root=f"{bucket}/{path}", gcs=gcp_zarr, check=False, create=True)
         root = zarr.group(store=store)
@@ -62,8 +60,20 @@ class IrradianceInferenceModel:
         aia_image = self.get_aia_image(time)
         with torch.no_grad():
             pred_irradiance = self.model.forward_unnormalize(aia_image).numpy()
-        pred_irradiance = pd.Series({ion: pred_irradiance[0][i] for i, ion in enumerate(self.eve_ions)})
+        pred_irradiance = {ion: pred_irradiance[0][i] for i, ion in enumerate(self.eve_ions)}
+        pred_irradiance["timestamp"] = time
+        pred_irradiance["inference_time"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        pred_irradiance["model_name"] = self.model_config["model_name"]
         return pred_irradiance
+
+    
+    def write_to_bq(self, prediction):
+        pred_irradiance = pd.DataFrame([prediction])
+        pred_irradiance.to_gbq(
+            destination_table=f"{self.cloud_config['database']}.{self.cloud_config['inference_table']}",
+            project_id=self.cloud_config["gcp_project"],
+            if_exists="append"
+        )
 
 
     def get_aia_image(self, time):
@@ -90,10 +100,16 @@ class IrradianceInferenceModel:
 
 
 inference_model = IrradianceInferenceModel()
+prediction = inference_model.predict("2011-01-01T00:24:00")
+inference_model.write_to_bq(prediction)
+print(prediction)
+
 from copy import copy
 self = copy(inference_model)
 
-prediction = self.predict("2011-01-01T00:24:00")
+
+
+
 
 # @app.get("/")
 # async def root():
