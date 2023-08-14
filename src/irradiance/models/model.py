@@ -212,7 +212,7 @@ class HybridIrradianceModel(LightningModule):
             self.ln_model.unfreeze()
         elif mode == "cnn":
             self.train_mode = "cnn"
-            self.cnn_lambda = 0.01
+            self.cnn_lambda = 0.1
             self.cnn_model.unfreeze()
             self.ln_model.freeze()
         else:
