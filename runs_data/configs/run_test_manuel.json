@@ -1,9 +1,9 @@
 {
-    "run_name": "AIA_HMI_MEGS_20_30_epochs_36min",
+    "run_name": "HMI_FULL_MEGS_FULL_20_30_epochs_60min_B7_lambda001",
 	"wandb": {
 		"project": "fdl-x-2023",
-		"tags": ["MEGS_FULL", "AIA_FULL", "HMI_FULL", "36min", "20_ln_epochs", "30_cnn_epochs", "efficientnet_b3", "dp_0.2", "linear lr: .001"],
-		"notes": "Full AIA and HMI predicting full MEGS spectrums at 36 minute cadence."
+		"tags": ["HMI_FULL", "60min", "20_ln_epochs", "30_cnn_epochs", "efficientnet_b7", "dp_0.2", "lambda_CNN_001"],
+		"notes": "Full training run of eve pipeline with full AIA and MEGS spectrums."
 	},
 	"paths": {
 		"checkpoint_path": "runs_data/checkpoints",
@@ -20,11 +20,11 @@
 		"frequency": "36min"
 	},
 	"training_parameters": {
-		"batch_size": 12,
-		"num_workers": 32,
+		"batch_size": 4,
+		"num_workers": 16,
 		"ln_epochs": 20,
-		"lr_linear": 0.001,
-		"cnn_model": "efficientnet_b3",
+		"lr_linear": 0.01,
+		"cnn_model": "efficientnet_b7",
 		"lr_cnn": 0.0001,
 		"cnn_dp": 0.2,
 		"cnn_epochs": 30,

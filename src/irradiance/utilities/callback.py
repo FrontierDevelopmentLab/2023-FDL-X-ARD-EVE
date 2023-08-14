@@ -234,7 +234,7 @@ class ImagePredictionLoggerHMI(Callback):
             plt.xticks(np.arange(0,val_eve.shape[1]),["C III", "Fe IX", "Fe VIII", "Fe X", "Fe XI", "Fe XII", "Fe XIII", "Fe XIV", "Fe XIX", "Fe XV", "Fe XVI", "Fe XVIII", "Fe XX", "Fe XX_2", "Fe XX_3", "H I", "H I_2", "H I_3", "He I", "He II", "He II_2", "He I_2", "Mg IX", "Mg X", "Mg X_2", "Ne VII", "Ne VIII", "O II", "O III", "O III_2", "O II_2", "O IV", "O IV_2", "O V", "O VI", "S XIV", "Si XII", "Si XII_2"],rotation = 90)
             plt.yscale('log')
 
-        elif not self.check_HMI and self.check_AIA:
+        elif not self.check_HMI and self.check_AIA and len(self.channels) == 9:
 
             fig = plt.figure(figsize=(10,14), dpi=150)
             
@@ -293,9 +293,38 @@ class ImagePredictionLoggerHMI(Callback):
             plt.xticks(np.arange(0,val_eve.shape[1]),["C III", "Fe IX", "Fe VIII", "Fe X", "Fe XI", "Fe XII", "Fe XIII", "Fe XIV", "Fe XIX", "Fe XV", "Fe XVI", "Fe XVIII", "Fe XX", "Fe XX_2", "Fe XX_3", "H I", "H I_2", "H I_3", "He I", "He II", "He II_2", "He I_2", "Mg IX", "Mg X", "Mg X_2", "Ne VII", "Ne VIII", "O II", "O III", "O III_2", "O II_2", "O IV", "O IV_2", "O V", "O VI", "S XIV", "Si XII", "Si XII_2"],rotation = 90)
             plt.yscale('log') 
 
+        elif not self.check_HMI and self.check_AIA and len(self.channels) == 3:
+
+            fig = plt.figure(figsize=(14,7), dpi=150)
+            
+            nrows = 2
+            ncols = 3
+
+            # 131A
+            plt.subplot(nrows,ncols,1)
+            plt.imshow(val_imgs[0,0], cmap = plt.get_cmap(cmap_dict['131A']), vmin = 0, vmax = 1)
+            plt.title('AIA - 131 Å')
+
+            # 335A
+            plt.subplot(nrows,ncols,2)
+            plt.imshow(val_imgs[0,1], cmap = plt.get_cmap(cmap_dict['335A']), vmin = 0, vmax = 1)
+            plt.title('AIA - 335 Å')
+
+            # 94A
+            plt.subplot(nrows,ncols,3)
+            plt.imshow(val_imgs[0,2], cmap = plt.get_cmap(cmap_dict['94A']), vmin = 0, vmax = 1)
+            plt.title('AIA - 94 Å')
+
+            # EVE
+            plt.subplot(nrows,1,nrows)
+            plt.bar(np.arange(0,val_eve.shape[1]), val_eve[0,:], label='ground truth')
+            plt.bar(np.arange(0,val_eve.shape[1]), pred_eve[0,:], width = 0.5, label='prediction', alpha=0.5)
+            plt.xticks(np.arange(0,val_eve.shape[1]),["C III", "Fe IX", "Fe VIII", "Fe X", "Fe XI", "Fe XII", "Fe XIII", "Fe XIV", "Fe XIX", "Fe XV", "Fe XVI", "Fe XVIII", "Fe XX", "Fe XX_2", "Fe XX_3", "H I", "H I_2", "H I_3", "He I", "He II", "He II_2", "He I_2", "Mg IX", "Mg X", "Mg X_2", "Ne VII", "Ne VIII", "O II", "O III", "O III_2", "O II_2", "O IV", "O IV_2", "O V", "O VI", "S XIV", "Si XII", "Si XII_2"],rotation = 90)
+            plt.yscale('log') 
+
         else:
 
-            fig = plt.figure(figsize=(10,14), dpi=150)
+            fig = plt.figure(figsize=(14,7), dpi=150)
             
             nrows = 2
             ncols = 3

@@ -209,7 +209,7 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
             if len(self.wavelengths) == 9:
                 wavelength_id = "AIA_FULL"
             elif (len(self.wavelengths) > 0 and len(self.wavelengths) < 9):
-                component_id = "_".join(self.components)
+                wavelength_id = "_".join(self.wavelengths)
         else:
             wavelength_id = ""
 
