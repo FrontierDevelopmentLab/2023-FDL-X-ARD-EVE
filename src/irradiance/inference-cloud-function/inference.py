@@ -8,6 +8,8 @@ import gcsfs
 import google.cloud.bigquery as bq
 from datetime import datetime
 
+import functions_framework
+
 
 class IrradianceInferenceModel:
     def __init__(self):
@@ -99,19 +101,24 @@ class IrradianceInferenceModel:
                 m.train()
 
 
-inference_model = IrradianceInferenceModel()
-prediction = inference_model.predict("2011-01-01T00:24:00")
-inference_model.write_to_bq(prediction)
-print(prediction)
+@functions_framework.http
+def hello_http(request):
 
-from copy import copy
-self = copy(inference_model)
+    message_json = request.get_json(silent=True)
+    message_args = request.args
+
+    print(message_json)
+
+    # time = message_json["time"]
+    # inference_model = IrradianceInferenceModel()
+    # prediction = inference_model.predict(time)
+    # inference_model.write_to_bq(prediction)
 
 
+    response = {
+        "status": "OK",
+        "message": "The message was properly received.",
+        "data": message_json
+    }
 
-
-
-# @app.get("/")
-# async def root():
-#     return {"message": "Hello World"}
-
+    return response
