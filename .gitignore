@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 *run_log.txt
 *wandb*
-*.ckpt
+runs_data/checkpoints/*/*.ckpt
 *.parquet
