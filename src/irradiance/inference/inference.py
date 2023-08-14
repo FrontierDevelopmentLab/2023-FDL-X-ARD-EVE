@@ -1,31 +1,59 @@
-import argparse
-import os
 import numpy as np
 import torch
 import pandas as pd
 from tqdm import tqdm
-
-# from fastapi import FastAPI
-# app = FastAPI()
+import json
+import zarr
+import gcsfs
+import google.cloud.bigquery as bq
 
 
 class IrradianceInferenceModel:
     def __init__(self):
-        # os.getenv("checkpoint_location")
-        checkpoint_path = "/home/richardagalvez/2023-FDL-X-ARD-EVE/runs_data/checkpoints/AIA_FULL_MEGS_FULL_30_50_epochs_30min/best_model_normalizations.ckpt" 
+        self.config = json.load("src/irradiance/inference/config.json")
+        self.model_config = self.config["inference_model"]
+        self.cloud_config = self.config["gcp_config"]
+
+        checkpoint_path = self.model_config["checkpoint_path"] 
         state = torch.load(checkpoint_path)
         self.model = state["model"]
         self.model.eval()
+        
         self.aia_wavelengths = state["sci_parameters"]["aia_wavelengths"]
         self.aia_wavelengths.sort()
         self.eve_ions = state["sci_parameters"]["eve_ions"]
         self.eve_ions.sort()
         self.aia_normalizations = state["normalizations"]["AIA"]
 
-        self.aia_data = zarr.group(zarr.DirectoryStore("/mnt/sdomlv2_full/sdomlv2.zarr"))
+        self.aia_root = self.get_zarr_root(bucket=self.cloud_config["bucket"], path=self.cloud_config["aia_path"])
+        self.bq_client = bq.Client(project=self.cloud_config["project"], location=self.cloud_config["region"])
 
 
-    def predict(self, aia_image, forward_passes=0):
+    def get_zarr_root(self, bucket: str, path: str) -> zarr.hierarchy.Group:
+        print(f"Connecting to zarr root in path: {path} and bucket: {bucket}")
+
+        gcp_zarr = gcsfs.GCSFileSystem(project=self.cloud_config["project"], bucket=bucket, access="read_only", requester_pays=True)
+        store = gcsfs.GCSMap(root=f"{bucket}/{path}", gcs=gcp_zarr, check=False, create=True)
+        root = zarr.group(store=store)
+
+        return root
+
+
+    def get_indices(self, time):
+        query = f"""
+            SELECT
+                *
+            FROM
+                `{self.cloud_config["project"]}.{self.cloud_config["database"]}.{self.cloud_config["index_table"]}`
+            WHERE
+                Time = '{time}'
+            LIMIT 1
+        """
+        df = self.bq_client.query(query).to_dataframe()
+        return df.index.values
+
+
+    def predict(self, aia_image):
         aia_image = self.prepare_aia(aia_image)
         with torch.no_grad():
             pred_irradiance = self.model.forward_unnormalize(aia_image).numpy()
@@ -52,32 +80,12 @@ class IrradianceInferenceModel:
             aia_image[wavelength] = self.aia_data[year][wavelength][idx,:,:]
         return aia_image
 
+
     def enable_dropout(self):
         for m in self.model.modules():
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
 
-import zarr
-from datetime import datetime
-
-def run_one_off_inferences():
-
-    virtual_eve = IrradianceInferenceModel()
-    for year in virtual_eve.aia_data.keys():
-        print(f"Processing year: {year}")
-        time_keys = pd.to_datetime(virtual_eve.aia_data[year][virtual_eve.aia_wavelengths[0]].attrs['T_OBS']).sort_values()
-        pred_irradiance = pd.DataFrame(index=time_keys, columns=virtual_eve.eve_ions)
-        for idx, time in enumerate(tqdm(time_keys, total=len(time_keys), desc="Processing time")):
-            try:
-                aia_image = virtual_eve.load_aia_image(time, idx)
-                pred_irradiance.loc[time] = virtual_eve.predict(aia_image)
-            except:
-                print(f"Failed to process time: {time}")
-                continue
-        pred_irradiance.to_parquet(f"/home/jupyter/output_inferences/run1/pred_irradiance_{year}.parquet")
-        print(f"Saved year: {year}, shape: {pred_irradiance.shape}")
-
-run_one_off_inferences()
 
 # @app.get("/")
 # async def root():
