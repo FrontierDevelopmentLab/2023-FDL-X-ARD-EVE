@@ -15,7 +15,7 @@ def unnormalize(y, eve_norm):
     return y
 
 
-class IrradianceModel(LightningModule):
+class CNNIrradianceModel(LightningModule):
 
     def __init__(self, d_input, d_output, eve_norm, model='efficientnet_b0', dp=0.75):
         super().__init__()
@@ -103,7 +103,7 @@ class HybridIrradianceModel(LightningModule):
         self.train_mode = "linear"
 
         self.ln_model = LinearIrradianceModel(d_input, d_output, eve_norm)
-        self.cnn_model = IrradianceModel(d_input, d_output, eve_norm, model=cnn_model, dp=cnn_dp)
+        self.cnn_model = CNNIrradianceModel(d_input, d_output, eve_norm, model=cnn_model, dp=cnn_dp)
         self.loss_func = HuberLoss()
 
 

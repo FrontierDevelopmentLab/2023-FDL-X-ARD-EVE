@@ -6,11 +6,14 @@ import json
 import zarr
 import gcsfs
 import google.cloud.bigquery as bq
+from datetime import datetime
 
 
 class IrradianceInferenceModel:
     def __init__(self):
-        self.config = json.load("src/irradiance/inference/config.json")
+        with open("src/irradiance/inference/config.json", "r") as f:
+            self.config = json.load(f)
+        
         self.model_config = self.config["inference_model"]
         self.cloud_config = self.config["gcp_config"]
 
@@ -25,14 +28,15 @@ class IrradianceInferenceModel:
         self.eve_ions.sort()
         self.aia_normalizations = state["normalizations"]["AIA"]
 
-        self.aia_root = self.get_zarr_root(bucket=self.cloud_config["bucket"], path=self.cloud_config["aia_path"])
-        self.bq_client = bq.Client(project=self.cloud_config["project"], location=self.cloud_config["region"])
+        self.aia_root = self.get_zarr_root(bucket=self.cloud_config["zarr_bucket"], path=self.cloud_config["aia_path"])
+        # self.hmi_root = self.get_zarr_root(bucket=self.cloud_config["zarr_bucket"], path=self.cloud_config["hmi_path"])
+        self.bq_client = bq.Client(project=self.cloud_config["gcp_project"], location=self.cloud_config["gcp_region"])
 
 
     def get_zarr_root(self, bucket: str, path: str) -> zarr.hierarchy.Group:
         print(f"Connecting to zarr root in path: {path} and bucket: {bucket}")
 
-        gcp_zarr = gcsfs.GCSFileSystem(project=self.cloud_config["project"], bucket=bucket, access="read_only", requester_pays=True)
+        gcp_zarr = gcsfs.GCSFileSystem(project=self.cloud_config["gcp_project"], bucket=bucket, access="read_only", requester_pays=True)
         store = gcsfs.GCSMap(root=f"{bucket}/{path}", gcs=gcp_zarr, check=False, create=True)
         root = zarr.group(store=store)
 
@@ -41,43 +45,41 @@ class IrradianceInferenceModel:
 
     def get_indices(self, time):
         query = f"""
-            SELECT
-                *
-            FROM
-                `{self.cloud_config["project"]}.{self.cloud_config["database"]}.{self.cloud_config["index_table"]}`
-            WHERE
-                Time = '{time}'
+            SELECT *
+            FROM `{self.cloud_config["gcp_project"]}.{self.cloud_config["database"]}.{self.cloud_config["index_table"]}`
+            WHERE Time = '{time}'
             LIMIT 1
         """
-        df = self.bq_client.query(query).to_dataframe()
-        return df.index.values
+        result = self.bq_client.query(query).result()
+        result = result.to_dataframe()
+        if result.shape[0] == 0:
+            raise ValueError(f"No data found for time: {time}")
+        result = result.iloc[0].to_dict()
+        return result
 
 
-    def predict(self, aia_image):
-        aia_image = self.prepare_aia(aia_image)
+    def predict(self, time):
+        aia_image = self.get_aia_image(time)
         with torch.no_grad():
             pred_irradiance = self.model.forward_unnormalize(aia_image).numpy()
-        
         pred_irradiance = pd.Series({ion: pred_irradiance[0][i] for i, ion in enumerate(self.eve_ions)})
         return pred_irradiance
 
 
-    def prepare_aia(self, aia_image):
+    def get_aia_image(self, time):
+        indices = self.get_indices(time)
+        time = datetime.strptime(time, "%Y-%m-%dT%H:%M:%S")
+        aia_image = {}
         for wavelength in self.aia_wavelengths:
+            year = int(time.year)
+            idx = indices[f"idx_{wavelength}"]
+            aia_image[wavelength] = self.aia_root[year][wavelength][idx,:,:]
             aia_image[wavelength] -= self.aia_normalizations[wavelength]["mean"]
             aia_image[wavelength] /= self.aia_normalizations[wavelength]["std"]
 
         aia_image = np.array([np.stack([aia_image[wavelength] for wavelength in self.aia_wavelengths], axis=0)])
         aia_image = torch.from_numpy(aia_image)
-        return aia_image
-
-
-    def load_aia_image(self, time, idx):
-        aia_image = {}
-        for wavelength in self.aia_wavelengths:
-            # time = datetime.strptime(time, "%Y-%m-%dT%H:%M:%S")
-            year = int(time.year)
-            aia_image[wavelength] = self.aia_data[year][wavelength][idx,:,:]
+        
         return aia_image
 
 
@@ -86,6 +88,12 @@ class IrradianceInferenceModel:
             if m.__class__.__name__.startswith('Dropout'):
                 m.train()
 
+
+inference_model = IrradianceInferenceModel()
+from copy import copy
+self = copy(inference_model)
+
+prediction = self.predict("2011-01-01T00:24:00")
 
 # @app.get("/")
 # async def root():
