@@ -51,14 +51,21 @@ class IrradianceInferenceModel:
         """
         result = self.bq_client.query(query).result()
         result = result.to_dataframe()
+
         if result.shape[0] == 0:
-            raise ValueError(f"No data found for time: {time}")
+            print(f"INFO: No data found for time: {time}")
+            return None
+        
         result = result.iloc[0].to_dict()
         return result
 
 
     def predict(self, time):
         aia_image = self.get_aia_image(time)
+
+        if aia_image is None:
+            return None
+        
         with torch.no_grad():
             pred_irradiance = self.model.forward_unnormalize(aia_image).numpy()
         pred_irradiance = {ion: pred_irradiance[0][i] for i, ion in enumerate(self.eve_ions)}
@@ -79,6 +86,14 @@ class IrradianceInferenceModel:
         return errors
 
 
+    def write_dataframe_to_bq(self, df):
+        df.to_gbq(
+            destination_table=f'{self.cloud_config["dataset"]}.{self.cloud_config["inference_table"]}', 
+            project_id=self.cloud_config["gcp_project"], 
+            if_exists="append"
+        )
+
+
     def get_table_ref(self):
         project = self.cloud_config["gcp_project"]
         dataset_id = self.cloud_config["dataset"]
@@ -92,6 +107,8 @@ class IrradianceInferenceModel:
 
     def get_aia_image(self, time):
         indices = self.get_indices(time)
+        if indices is None:
+            return None
         time = datetime.strptime(time, "%Y-%m-%dT%H:%M:%S")
         aia_image = {}
         for wavelength in self.aia_wavelengths:
@@ -120,15 +137,23 @@ def hello_http(request):
     message_args = request.args
     print(message_json)
 
-    time = message_json["time"]
+    timestamp = message_json["time"]
     inference_model = IrradianceInferenceModel()
-    prediction = inference_model.predict(time)
-    result = inference_model.write_to_bq(prediction)
+    prediction = inference_model.predict(timestamp)
 
-    response = {
-        "status": "OK",
-        "message": "The message was properly received.",
-        "data": message_json
-    }
+    if prediction is not None:
+        result = inference_model.write_to_bq(prediction)
+
+        response = {
+            "status": "OK",
+            "message": "Inference completed for timestamp {timestamp}.",
+            "data": message_json
+        }
+    else:
+        response = {
+            "status": "ERROR",
+            "message": f"No data found for timestamp {timestamp}.",
+            "data": message_json
+        }
 
     return response

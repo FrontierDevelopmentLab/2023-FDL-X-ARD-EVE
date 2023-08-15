@@ -6,9 +6,16 @@ from concurrent.futures import ThreadPoolExecutor
 token = subprocess.run('gcloud auth print-identity-token', shell=True, capture_output=True, text=True).stdout.strip()
 headers = {"Authorization": f"bearer {token}", "Content-Type": "application/json"}
 
-def get_date_list():
-    start_date = pd.to_datetime('2017-09-26')
-    end_date = pd.to_datetime('2017-09-28')
+"""
+begin date: '2017-09-20 00:00:00'
+end_date: '2017-10-01 00:00:00'
+
+Solar event was on 27 Sep 2017
+"""
+
+def get_date_list(begin_date, end_date):
+    start_date = pd.to_datetime(begin_date)
+    end_date = pd.to_datetime(end_date)
     date_list = pd.date_range(start=start_date, end=end_date, freq='12min').tolist()
     return date_list
 
@@ -20,8 +27,7 @@ def eve_endpoint(data):
     )
     return result
 
-
-date_list = get_date_list()
+date_list = get_date_list(begin_date='2017-01-01', end_date='2017-09-20')
 
 futures = []
 with ThreadPoolExecutor() as executor:
@@ -35,5 +41,7 @@ with ThreadPoolExecutor() as executor:
     results = [future.result() for future in futures]
 
 for result in results:
-    print(f"Submitted {len(date_list)} requests to EVE endpoint.")
     print(result.text)
+
+print(f"Submitted {len(date_list)} requests to EVE endpoint.")
+print(f"Received {len(results)} responses from EVE endpoint.")
