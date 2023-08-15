@@ -7,8 +7,8 @@ token = subprocess.run('gcloud auth print-identity-token', shell=True, capture_o
 headers = {"Authorization": f"bearer {token}", "Content-Type": "application/json"}
 
 """
-begin date: '2017-09-20 00:00:00'
-end_date: '2017-10-01 00:00:00'
+begin date: '2017-04-08 23:36:00'
+end_date: '2017-07-19 23:59:00'
 
 Solar event was on 27 Sep 2017
 """
@@ -27,7 +27,7 @@ def eve_endpoint(data):
     )
     return result
 
-date_list = get_date_list(begin_date='2017-10-01T00:10:00', end_date='2019-12-31 23:59:00')
+date_list = get_date_list(begin_date='2017-04-08 23:36:00', end_date='2017-07-19 23:59:00')
 
 futures = []
 with ThreadPoolExecutor(max_workers=300) as executor:
