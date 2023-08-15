@@ -113,13 +113,6 @@ class IrradianceInferenceModel:
                 m.train()
 
 
-# time="2010-05-13T01:48:00"
-# inference_model = IrradianceInferenceModel()
-# prediction = inference_model.predict(time)
-# result = inference_model.write_to_bq(prediction)
-# print(result)
-
-
 @functions_framework.http
 def hello_http(request):
 
@@ -127,11 +120,10 @@ def hello_http(request):
     message_args = request.args
     print(message_json)
 
-    # time = message_json["time"]
-    # inference_model = IrradianceInferenceModel()
-    # prediction = inference_model.predict(time)
-    # result = inference_model.write_to_bq(prediction)
-    # print(result)
+    time = message_json["time"]
+    inference_model = IrradianceInferenceModel()
+    prediction = inference_model.predict(time)
+    result = inference_model.write_to_bq(prediction)
 
     response = {
         "status": "OK",
