@@ -27,10 +27,10 @@ def eve_endpoint(data):
     )
     return result
 
-date_list = get_date_list(begin_date='2017-01-01', end_date='2017-09-20')
+date_list = get_date_list(begin_date='2017-10-01T00:10:00', end_date='2019-12-31 23:59:00')
 
 futures = []
-with ThreadPoolExecutor() as executor:
+with ThreadPoolExecutor(max_workers=300) as executor:
     for inference_date in date_list:
         timestamp = inference_date.strftime('%Y-%m-%dT%H:%M:%S')
         print(f"Submitting: {timestamp} to thread pool")
@@ -40,8 +40,8 @@ with ThreadPoolExecutor() as executor:
 
     results = [future.result() for future in futures]
 
-for result in results:
-    print(result.text)
+# for result in results:
+#     print(result.text)
 
 print(f"Submitted {len(date_list)} requests to EVE endpoint.")
 print(f"Received {len(results)} responses from EVE endpoint.")
