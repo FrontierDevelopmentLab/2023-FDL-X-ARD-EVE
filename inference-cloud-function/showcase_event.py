@@ -2,16 +2,15 @@ import pandas as pd
 import requests
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from google.cloud import pubsub_v1
+
 
 token = subprocess.run('gcloud auth print-identity-token', shell=True, capture_output=True, text=True).stdout.strip()
 headers = {"Authorization": f"bearer {token}", "Content-Type": "application/json"}
+publisher = pubsub_v1.PublisherClient()
+topic_name = "projects/us-fdl-x/topics/us-fdl-x-ard-terraform-pubsub-topic-orchestrator"
+url = "https://us-central1-us-fdl-x.cloudfunctions.net/virtual-eve"
 
-"""
-begin date: '2017-04-08 23:36:00'
-end_date: '2017-07-19 23:59:00'
-
-Solar event was on 27 Sep 2017
-"""
 
 def get_date_list(begin_date, end_date):
     start_date = pd.to_datetime(begin_date)
@@ -19,29 +18,23 @@ def get_date_list(begin_date, end_date):
     date_list = pd.date_range(start=start_date, end=end_date, freq='12min').tolist()
     return date_list
 
-def eve_endpoint(data):
-    result = requests.post(
-        url="https://us-central1-us-fdl-x.cloudfunctions.net/virtual-eve",
-        headers=headers,
-        json=data,
-    )
-    return result
 
-date_list = get_date_list(begin_date='2017-04-08 23:36:00', end_date='2017-07-19 23:59:00')
+def publish_message(data):
+    future = publisher.publish(topic_name, data=data.encode("utf-8"))
+    return future
 
+
+date_list = get_date_list(begin_date='2011-01-01T01:00:00', end_date='2011-02-01 00:00:00')
 futures = []
-with ThreadPoolExecutor(max_workers=300) as executor:
-    for inference_date in date_list:
-        timestamp = inference_date.strftime('%Y-%m-%dT%H:%M:%S')
-        print(f"Submitting: {timestamp} to thread pool")
+for inference_date in date_list:
+    timestamp = inference_date.strftime('%Y-%m-%dT%H:%M:%S')
+    print(f"Submitting: {timestamp} to pubsub")
 
-        message = {"time": timestamp}
-        futures.append(executor.submit(eve_endpoint, message))
+    data = str({"timestamp": timestamp, "api_endpoint_url": url})
+    future = publish_message(data)
+    futures.append(future)
 
-    results = [future.result() for future in futures]
 
-# for result in results:
-#     print(result.text)
-
-print(f"Submitted {len(date_list)} requests to EVE endpoint.")
-print(f"Received {len(results)} responses from EVE endpoint.")
+results = [future.result() for future in futures]
+print(results)
+print(f"Published {len(results)} messages to {topic_name}")
