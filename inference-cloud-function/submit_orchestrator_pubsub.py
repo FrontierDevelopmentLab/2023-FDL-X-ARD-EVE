@@ -1,14 +1,11 @@
 import pandas as pd
-import requests
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
 from google.cloud import pubsub_v1
 from tqdm import tqdm
 
 import time
 
 token = subprocess.run('gcloud auth print-identity-token', shell=True, capture_output=True, text=True).stdout.strip()
-headers = {"Authorization": f"bearer {token}", "Content-Type": "application/json"}
 publisher = pubsub_v1.PublisherClient()
 topic_name = "projects/us-fdl-x/topics/us-fdl-x-ard-terraform-pubsub-topic-orchestrator"
 url = "https://us-central1-us-fdl-x.cloudfunctions.net/virtual-eve"
