@@ -3,6 +3,7 @@ import requests
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import pubsub_v1
+from tqdm import tqdm
 
 import time
 
@@ -21,26 +22,20 @@ def get_date_list(begin_date, end_date):
 
 
 def publish_message(data):
-    future = publisher.publish(topic_name, data=data.encode("utf-8"))
-    time.sleep(0.1)
-    return future
+    publisher.publish(topic_name, data=data.encode("utf-8"))
+    time.sleep(0.05)
+    # return future
 
 
-for year in range(2013, 2015):
+for year in range(2015, 2021):
 
     date_list = get_date_list(begin_date=f'{year}-01-01 00:00:00', end_date=f'{year}-12-31 23:48:00')
 
     print(f"Sending {len(date_list)} messages for year {year}")
 
-    futures = []
-    for inference_date in date_list:
+    for inference_date in tqdm(date_list):
         timestamp = inference_date.strftime('%Y-%m-%dT%H:%M:%S')
-
         data = str({"timestamp": timestamp, "api_endpoint_url": url})
-        future = publish_message(data)
-        futures.append(future)
+        publish_message(data)
 
-
-    results = [future.result() for future in futures]
-    print(f"Published {len(results)} messages for year {year}")
-    time.sleep(1800)
+    time.sleep(60)
