@@ -17,6 +17,6 @@
         "hmi_path": "HMI.zarr",
         "dataset": "prod_data",
         "index_table": "aia_hmi_index",
-        "inference_table": "virtual_eve_irradiance"
+        "inference_table": "virtual_eve_irradiance_inference"
     }
 }
