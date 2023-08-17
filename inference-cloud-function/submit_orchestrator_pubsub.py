@@ -48,16 +48,23 @@ def get_missing_times(start_date, end_date):
     missing_times = list(missing_times)
     missing_times.sort()
 
+    # print("Missing Times:")
+    # print("-"*50)
+    # print(missing_times)
+
+    print(f"No. of missing_times: {len(missing_times)}")
+    print(f"No. of all_times: {len(all_times)}")
+    print(f"No. of inference_times: {len(inference_times)}")
+
     return missing_times
 
 
 def publish_message(data):
     publisher.publish(topic_name, data=data.encode("utf-8"))
-    time.sleep(0.001)
+    time.sleep(0.1)
 
 
-ts_list = get_missing_times(start_date=f'2010-05-01 00:00:00', end_date=f'2020-12-31 23:48:00')
-# ts_list = get_missing_times(start_date="2011-01-01 00:00:00", end_date="2011-01-02 23:48:00")
+ts_list = get_missing_times(start_date='2010-05-01 00:00:00', end_date='2020-12-31 23:48:00')
 
 print(f"Sending {len(ts_list)} messages to virtual eve")
 
