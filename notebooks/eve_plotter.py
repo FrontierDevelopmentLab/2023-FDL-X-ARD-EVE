@@ -8,7 +8,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.colors as mcolors
 from glob import glob
+
+DATA_DIR = "/Users/wfawcett/Documents/FDL/2023/data/EVE"
+PLOT_DIR = f"{DATA_DIR}/plots"
 
 
 def main():
@@ -43,16 +47,19 @@ def main():
                     units = "[Wm$^{-2}$]"
 
                 make_2d_hist(
-                    x_hist=ion_df[f"real_{ion}"],
-                    y_hist=ion_df[f"virt_{ion}"],
+                    x_hist=np.array(ion_df[f"real_{ion}"]),
+                    y_hist=np.array(ion_df[f"virt_{ion}"]),
                     xlabel=f"Observed Irradiance {units}",
                     ylabel=f"Predicted Irradiance {units}",
                     # title=f"{ion} Observed vs. Predicted Irradiance",           
                     title=ion_name,
-                    save_path=f"/home/willfaw/plots/{ion}_2d_hist.png", 
+                    save_path=f"{PLOT_DIR}/{ion}_2d_hist.png", 
                     plot_log=plot_log
                 )
+            break # just one ion
 
+
+    return 
 
     # Select ions with good statistics
     for ion in ion_list:
@@ -67,7 +74,7 @@ def main():
 
 def load_data():
     df_dict = {}
-    files = glob("/home/willfaw/data/EVE/pandas/*_merged.parquet")
+    files = glob(f"{DATA_DIR}/pandas/*_merged.parquet")
     for f in files:
         ion = f.replace("_merged.parquet", "").split("/")[-1]
         df_dict[ion] = pd.read_parquet(f)
@@ -102,9 +109,6 @@ def process_data():
 
 def make_2d_hist(x_hist, y_hist, xlabel, ylabel, title, save_path, plot_log=False):
 
-    x_hist = np.array(x_hist)
-    y_hist = np.array(y_hist)
-
     if plot_log:
         x = np.log(x_hist)
         y = np.log(y_hist)
@@ -114,29 +118,27 @@ def make_2d_hist(x_hist, y_hist, xlabel, ylabel, title, save_path, plot_log=Fals
     
     print(x.min(), y.min())
     print(x.max(), y.max())
-    hist, xedges, yedges = np.histogram2d(x, y, bins=100)
+    hist, xedges, yedges, image = plt.hist2d(x, y, bins=100, cmap='Blues', density=True)
 
-    # Normalize the histogram so that the maximum value is 1
-    hist_normalized = hist / hist.max()
+    # # Normalize the histogram so that the maximum value is 1
+    # hist, xedges, yedges = np.histogram2d(x, y, bins=100)
+    # hist_normalized = hist / hist.max()
 
-    # Create a plot
+    # # Create a plot
     # plt.imshow(hist_normalized.T, origin='lower', cmap='Blues')
-    plt.imshow(hist_normalized.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', cmap='Blues')
+    # # plt.imshow(hist_normalized.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', cmap='Blues')
 
-    plt.colorbar(label='Normalized Counts')
-
-    # plt.hist2d(x_hist, y_hist, bins=100, cmap='Blues')
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)
     plt.axline((0, 0), slope=1, color='red', linestyle='--', linewidth=1)
+    # norm = mcolors.Normalize(vmin=0, vmax=1)
+    cbar = plt.colorbar(label='Normalized Counts')
+    # cbar.set_clim(0, 1)
     plt.tight_layout()
 
     if plot_log:
-        # plt.xscale('log')
-        # plt.yscale('log')
         save_path = save_path.replace(".png", "_log.png")
-
     print(f"saving 2h hist to {save_path} with log {plot_log}")
     plt.savefig(save_path, dpi=300)
     plt.close()
