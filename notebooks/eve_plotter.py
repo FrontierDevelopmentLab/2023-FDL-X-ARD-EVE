@@ -106,17 +106,23 @@ def make_2d_hist(x_hist, y_hist, xlabel, ylabel, title, save_path, plot_log=Fals
     y_hist = np.array(y_hist)
 
     if plot_log:
-        x_hist = np.log(x_hist)
-        y_hist = np.log(y_hist)
+        x = np.log(x_hist)
+        y = np.log(y_hist)
+    else:
+        x = x_hist
+        y = y_hist
     
-
-    hist, xedges, yedges = np.histogram2d(x_hist, y_hist, bins=100)
+    print(x.min(), y.min())
+    print(x.max(), y.max())
+    hist, xedges, yedges = np.histogram2d(x, y, bins=100)
 
     # Normalize the histogram so that the maximum value is 1
     hist_normalized = hist / hist.max()
 
     # Create a plot
-    plt.imshow(hist_normalized.T, origin='lower', cmap='Blues')
+    # plt.imshow(hist_normalized.T, origin='lower', cmap='Blues')
+    plt.imshow(hist_normalized.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', cmap='Blues')
+
     plt.colorbar(label='Normalized Counts')
 
     # plt.hist2d(x_hist, y_hist, bins=100, cmap='Blues')
@@ -133,7 +139,6 @@ def make_2d_hist(x_hist, y_hist, xlabel, ylabel, title, save_path, plot_log=Fals
 
     print(f"saving 2h hist to {save_path} with log {plot_log}")
     plt.savefig(save_path, dpi=300)
-
     plt.close()
 
 
