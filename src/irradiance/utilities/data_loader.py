@@ -115,6 +115,7 @@ class ZarrIrradianceDatasetHMI(Dataset):
 
         return eve_data
 
+
     def get_hmi_image(self, idx):
         hmi_image_dict = {}
         for component in self.components:
@@ -129,6 +130,7 @@ class ZarrIrradianceDatasetHMI(Dataset):
         hmi_image =  np.array(list(hmi_image_dict.values()))
         
         return hmi_image
+
 
     def __str__(self):
         output = ""
