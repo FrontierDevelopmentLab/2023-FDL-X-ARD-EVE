@@ -11,6 +11,9 @@ import matplotlib.dates as mdates
 import matplotlib.colors as mcolors
 from glob import glob
 
+import matplotlib as mpl
+mpl.use('Agg')
+
 DATA_DIR = "/Users/wfawcett/Documents/FDL/2023/data/EVE"
 PLOT_DIR = f"{DATA_DIR}/plots"
 
@@ -23,22 +26,26 @@ def main():
     print(f"Available ions: {ion_list}")
 
     # Make plots for each ion separately
-    make_single_plots = True   
+    make_single_plots = False   
     if make_single_plots:
         for ion in ion_list:
+            if "Fe_XX" not in ion: # skip iron ions
+                continue
             ion_df = ion_df_dict[ion]
             ion_name = ion.replace("_", " ")
 
-            # make_plot_with_subplot(
-            #     x=ion_df['timestamp'], 
-            #     y1=ion_df[f"real_{ion}"],
-            #     y2=ion_df[f"virt_{ion}"],
-            #     label1=f"Observed {ion_name}",
-            #     label2=f"Predicted {ion_name}",
-            #     subplot_y=ion_df['residual'],
-            #     subplot_label=None,
-            #     save_path=f"/home/willfaw/plots/{ion}_residual.png"
-            #     )
+            for plot_log in [True, False]:
+                make_plot_with_subplot(
+                    x=ion_df['timestamp'], 
+                    y1=ion_df[f"real_{ion}"],
+                    y2=ion_df[f"virt_{ion}"],
+                    label1=f"Observed {ion_name}",
+                    label2=f"Predicted {ion_name}",
+                    subplot_y=ion_df['residual'],
+                    subplot_label=None,
+                    log_y=plot_log,
+                    save_path=f"{PLOT_DIR}/{ion}_residual.png"
+                    )
 
             for plot_log in [True, False]:
                 if plot_log:
@@ -56,10 +63,8 @@ def main():
                     save_path=f"{PLOT_DIR}/{ion}_2d_hist.png", 
                     plot_log=plot_log
                 )
-            break # just one ion
+            # break # just one ion
 
-
-    return 
 
     # Select ions with good statistics
     for ion in ion_list:
@@ -70,6 +75,8 @@ def main():
     print(f"There are {len(ion_list)} ions with >1000 measurements")
 
     plot_residuals_grid(ion_list, ion_df_dict)
+
+    
 
 
 def load_data():
@@ -116,22 +123,26 @@ def make_2d_hist(x_hist, y_hist, xlabel, ylabel, title, save_path, plot_log=Fals
         x = x_hist
         y = y_hist
     
+    print("log:", plot_log)
     print(x.min(), y.min())
     print(x.max(), y.max())
-    hist, xedges, yedges, image = plt.hist2d(x, y, bins=100, cmap='Blues', density=True)
+    # hist, xedges, yedges, image = plt.hist2d(x, y, bins=100, cmap='Blues', density=True)
 
-    # # Normalize the histogram so that the maximum value is 1
-    # hist, xedges, yedges = np.histogram2d(x, y, bins=100)
-    # hist_normalized = hist / hist.max()
+    # Normalize the histogram so that the maximum value is 1
+    hist, xedges, yedges = np.histogram2d(x, y, bins=100)
+    hist_normalized = hist / hist.max()
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
 
-    # # Create a plot
+    # Create a plot
     # plt.imshow(hist_normalized.T, origin='lower', cmap='Blues')
-    # # plt.imshow(hist_normalized.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', cmap='Blues')
+    plt.imshow(hist_normalized.T, extent=extent, cmap='Blues', origin='lower')
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)
-    plt.axline((0, 0), slope=1, color='red', linestyle='--', linewidth=1)
+    plt.axline((xedges[0], yedges[0]), slope=1, color='red', linestyle='--', linewidth=1)
+
+
     # norm = mcolors.Normalize(vmin=0, vmax=1)
     cbar = plt.colorbar(label='Normalized Counts')
     # cbar.set_clim(0, 1)
@@ -144,7 +155,7 @@ def make_2d_hist(x_hist, y_hist, xlabel, ylabel, title, save_path, plot_log=Fals
     plt.close()
 
 
-def make_plot_with_subplot(x, y1, y2, label1, label2, subplot_y, subplot_label, save_path):
+def make_plot_with_subplot(x, y1, y2, label1, label2, subplot_y, subplot_label, log_y, save_path):
 
     # Create the main plot (top) and ratio plot (bottom)
     fig = plt.figure(figsize=(9, 8))  # Adjust the figure size as needed
@@ -155,7 +166,12 @@ def make_plot_with_subplot(x, y1, y2, label1, label2, subplot_y, subplot_label, 
     ax1.plot(x, y1, label=label1, color='red')
     ax1.plot(x, y2, label=label2, color='blue')
     ax1.set_xlabel('Date')
-    ax1.set_ylabel('Irradience [Wm$^{-2}$]')
+    if log_y:
+        ax1.set_ylabel('Irradience log$_{10}$[Wm$^{-2}$]')
+        ax1.set_yscale('log')
+
+    else:
+        ax1.set_ylabel('Irradience [Wm$^{-2}$]')
     ax1.legend()
 
     # Add the ratio plot to the bottom grid
@@ -170,6 +186,8 @@ def make_plot_with_subplot(x, y1, y2, label1, label2, subplot_y, subplot_label, 
     # Adjust the spacing between the subplots
     plt.tight_layout()
 
+    if log_y:
+        save_path = save_path.replace(".png", "_log.png")
     plt.savefig(save_path, dpi=300)
     print(f"Saving plot to {save_path}")
     # Show the combined plot
@@ -220,8 +238,8 @@ def plot_residuals_grid(ion_list, ion_df_dict):
 
 
     plt.tight_layout()
-    print("Saving grid to /home/willfaw/plots/residuals_grid.png")
-    plt.savefig("/home/willfaw/plots/residuals_grid.png", dpi=300)
+    print(f"Saving grid to {PLOT_DIR}/residuals_grid.png")
+    plt.savefig(f"{PLOT_DIR}/residuals_grid.png", dpi=300)
     plt.close()
 
 if __name__ == "__main__":
