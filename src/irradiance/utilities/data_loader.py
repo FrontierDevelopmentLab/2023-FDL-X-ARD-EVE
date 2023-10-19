@@ -308,8 +308,11 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
                 hmi_channel = self.hmi_data[year][self.components[0]]
 
                 # get observation time
-                t_obs_hmi_channel_pre = hmi_channel.attrs['T_OBS'] 
+                t_obs_hmi_channel_pre = hmi_channel.attrs['T_OBS']
                 
+                for idx, time_val in enumerate(t_obs_hmi_channel_pre):
+                    t_obs_hmi_channel_pre[idx] = time_val[:19]
+
                 # substitute characters
                 replacements = {'.': '-', '_': 'T','TTAI': '', '60':'59'}
                 t_obs_hmi_channel = []
@@ -321,7 +324,7 @@ class ZarrIrradianceDataModuleHMI(pl.LightningDataModule):
                 if j == 0:
                     # transform to DataFrame
                     # HMI
-                    df_t_hmi = pd.DataFrame({'Time': pd.to_datetime(t_obs_hmi_channel,format='mixed'), f'idx_{self.components[0]}': np.arange(0,len(t_obs_hmi_channel))})
+                    df_t_hmi = pd.DataFrame({'Time': pd.to_datetime(t_obs_hmi_channel, format='mixed'), f'idx_{self.components[0]}': np.arange(0,len(t_obs_hmi_channel))})
 
                 else:
                     df_tmp_hmi =pd.DataFrame({'Time': pd.to_datetime(t_obs_hmi_channel, format='mixed'), f'idx_{self.components[0]}': np.arange(0,len(t_obs_hmi_channel))})
