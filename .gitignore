@@ -160,5 +160,6 @@ cython_debug/
 #.idea/
 *run_log.txt
 *wandb*
-*.ckpt
+runs_data/checkpoints/*
 *.parquet
+checkpoints/MEGS_A_6hr_100epochs/best_model.ckpt

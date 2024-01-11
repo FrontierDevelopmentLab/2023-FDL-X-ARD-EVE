@@ -1,0 +1,10 @@
+torch
+torchvision
+pytorch_lightning
+zarr
+pandas
+tqdm
+gcsfs
+google-cloud-bigquery
+google-cloud-storage
+db-dtypes
