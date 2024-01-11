@@ -1,5 +1,5 @@
 {
-    "run_name": "HMI_20_30_epochs_36min_B5_lambda01",
+    "run_name": "HMI_20_30_epochs_36min_B5_lambda001",
 	"wandb": {
 		"project": "fdl-x-2023",
 		"tags": ["HMI", "36min", "20_ln_epochs", "30_cnn_epochs", "efficientnet_b5", "dp_0.2", "lambda_CNN_01"],
