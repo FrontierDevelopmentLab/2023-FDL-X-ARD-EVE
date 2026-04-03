@@ -16,7 +16,7 @@ sys.modules["src.irradiance"] = type(sys)("src.irradiance")
 sys.modules["src.irradiance.models"] = type(sys)("src.irradiance.models")
 sys.modules["src.irradiance.models.model"] = _model_module
 
-CHECKPOINT_PATH = Path(__file__).parent.parent / "inference-cloud-function" / "checkpoints" / "AIA_MEGS_20_30_epochs_36min.ckpt"
+CHECKPOINT_PATH = Path(__file__).parent / "checkpoints" / "AIA_MEGS_20_30_epochs_36min.ckpt"
 
 
 def load_model():
