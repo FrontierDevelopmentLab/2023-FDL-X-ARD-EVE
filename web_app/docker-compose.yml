@@ -3,5 +3,9 @@ services:
     build: .
     ports:
       - "8501:8501"
+    environment:
+      - DATA_BACKEND=local
+      - LOCAL_DATA_ROOT=/data
     volumes:
+      - /mnt/volume4/isidore-volume-4/projects/us-fdl-x/us-fdlx-ard-sdomlv2a:/data:ro
       - ./cache:/app/cache

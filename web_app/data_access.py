@@ -1,15 +1,25 @@
-"""Data access layer for reading AIA images from S3 Zarr stores."""
+"""Data access layer for reading AIA images from Zarr stores (local filesystem or S3)."""
 
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import s3fs
 import zarr
 
 AIA_WAVELENGTHS = ["131A", "1600A", "1700A", "171A", "193A", "211A", "304A", "335A", "94A"]
+
+# ── Backend configuration ───────────────────────────────────────────────────
+# Set DATA_BACKEND=s3 to fall back to reading from AWS S3.
+# Default: local filesystem at LOCAL_DATA_ROOT.
+
+DATA_BACKEND = os.environ.get("DATA_BACKEND", "local")
+LOCAL_DATA_ROOT = Path(os.environ.get(
+    "LOCAL_DATA_ROOT",
+    "/mnt/volume4/isidore-volume-4/projects/us-fdl-x/us-fdlx-ard-sdomlv2a",
+))
 
 S3_BUCKET = "nasa-radiant-data"
 AIA_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/AIA.zarr"
@@ -18,27 +28,45 @@ HMI_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/HMI.zarr"
 CACHE_DIR = Path(__file__).parent / "cache"
 INDEX_CACHE = CACHE_DIR / "aia_time_index.csv"
 
-# Shared filesystem instance
+# ── S3 helpers (only used when DATA_BACKEND=s3) ────────────────────────────
+
 _fs = None
 
 
 def get_s3fs():
     global _fs
     if _fs is None:
+        import s3fs
         _fs = s3fs.S3FileSystem(anon=True)
     return _fs
 
 
+# ── Zarr root accessors ────────────────────────────────────────────────────
+
 def get_aia_root():
-    """Open AIA Zarr group from S3."""
-    fs = get_s3fs()
-    store = s3fs.S3Map(root=f"{S3_BUCKET}/{AIA_ZARR_PREFIX}", s3=fs)
-    return zarr.open(store, mode="r")
+    """Open AIA Zarr group (local or S3)."""
+    if DATA_BACKEND == "s3":
+        import s3fs
+        fs = get_s3fs()
+        store = s3fs.S3Map(root=f"{S3_BUCKET}/{AIA_ZARR_PREFIX}", s3=fs)
+        return zarr.open(store, mode="r")
+    else:
+        return zarr.open(str(LOCAL_DATA_ROOT / "AIA.zarr"), mode="r")
 
 
-def _read_t_obs(year: str, wl: str) -> tuple[str, str, list[str]]:
-    """Read T_OBS attr directly via s3fs.cat — returns (year, wl, timestamps)."""
-    # Use a fresh filesystem per thread to avoid shared session issues
+# ── Time index construction ────────────────────────────────────────────────
+
+def _read_t_obs_local(year: str, wl: str) -> tuple[str, str, list[str]]:
+    """Read T_OBS attr from local .zattrs file."""
+    path = LOCAL_DATA_ROOT / "AIA.zarr" / year / wl / ".zattrs"
+    attrs = json.loads(path.read_text())
+    return year, wl, attrs["T_OBS"]
+
+
+def _read_t_obs_s3(year: str, wl: str) -> tuple[str, str, list[str]]:
+    """Read T_OBS attr from S3 .zattrs file (with retries)."""
+    import s3fs
+    import time as _time
     fs = s3fs.S3FileSystem(anon=True)
     path = f"{S3_BUCKET}/{AIA_ZARR_PREFIX}/{year}/{wl}/.zattrs"
     for attempt in range(3):
@@ -46,18 +74,31 @@ def _read_t_obs(year: str, wl: str) -> tuple[str, str, list[str]]:
             raw = fs.cat(path)
             attrs = json.loads(raw)
             return year, wl, attrs["T_OBS"]
-        except Exception as e:
+        except Exception:
             if attempt == 2:
                 raise
-            import time
-            time.sleep(2 ** attempt)
+            _time.sleep(2 ** attempt)
+
+
+def _discover_years() -> list[str]:
+    """Return sorted list of year directories in the AIA Zarr store."""
+    if DATA_BACKEND == "s3":
+        fs = get_s3fs()
+        entries = fs.ls(f"{S3_BUCKET}/{AIA_ZARR_PREFIX}/")
+        return sorted(e.split("/")[-1] for e in entries if e.split("/")[-1].isdigit())
+    else:
+        aia_zarr = LOCAL_DATA_ROOT / "AIA.zarr"
+        return sorted(
+            d.name for d in aia_zarr.iterdir()
+            if d.is_dir() and d.name.isdigit()
+        )
 
 
 def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
     """Build a mapping from timestamp -> (year, index) for each AIA wavelength.
 
     Uses T_OBS attrs from the Zarr store. Caches result to CSV.
-    First run reads from S3 (parallel, ~3-5 minutes), subsequent runs use cache.
+    First run reads metadata (parallel), subsequent runs use cache.
     """
     if INDEX_CACHE.exists():
         df = pd.read_csv(INDEX_CACHE, parse_dates=["Time"])
@@ -66,18 +107,16 @@ def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Discover available years
-    fs = get_s3fs()
-    entries = fs.ls(f"{S3_BUCKET}/{AIA_ZARR_PREFIX}/")
-    years = sorted(e.split("/")[-1] for e in entries if e.split("/")[-1].isdigit())
+    years = _discover_years()
+    read_fn = _read_t_obs_s3 if DATA_BACKEND == "s3" else _read_t_obs_local
 
-    # Read all T_OBS attrs in parallel (14 years x 9 wavelengths = 126 requests)
     jobs = [(year, wl) for wl in AIA_WAVELENGTHS for year in years]
     total = len(jobs)
     results = {}  # (year, wl) -> list[str]
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {pool.submit(_read_t_obs, year, wl): (year, wl) for year, wl in jobs}
+    max_workers = 8 if DATA_BACKEND == "s3" else 16
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(read_fn, year, wl): (year, wl) for year, wl in jobs}
         done = 0
         for future in as_completed(futures):
             year, wl, t_obs = future.result()
@@ -116,6 +155,8 @@ def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
     join_series.to_csv(INDEX_CACHE)
     return join_series
 
+
+# ── Query helpers ───────────────────────────────────────────────────────────
 
 def get_available_dates(time_index: pd.DataFrame):
     """Return the min and max dates available in the index."""

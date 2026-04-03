@@ -108,26 +108,105 @@ with st.sidebar:
 
 if page == "About":
     st.write("## About")
+
     st.write(
         """
-        The **MEGS-A** detector on SDO/EVE measured solar EUV irradiance from
-        2010 to 2014, when it suffered a power anomaly.  This model produces
-        **Virtual EVE** predictions by running a hybrid Linear + EfficientNet-B5
-        CNN on SDO/AIA imagery, effectively extending the MEGS-A record beyond
-        2014.
+        Earth's upper atmosphere is principally governed by the Sun's extreme
+        ultraviolet (EUV) radiation. Sudden increases during solar flares and
+        geomagnetic storms can disrupt long-range communications, induce
+        currents that damage power grids, degrade satellite hardware, and
+        corrupt on-board data. Accurate, continuous measurement of solar EUV
+        irradiance is therefore critical for space-weather forecasting.
 
-        ### How it works
+        NASA's **Solar Dynamics Observatory (SDO)**, launched in 2010 as part
+        of the *Living With a Star* program, carried the **EVE** instrument
+        with two modules — **MEGS-A** and **MEGS-B** — that together measured
+        irradiance across 39 spectral lines. **In 2014, a capacitor short
+        destroyed MEGS-A**, eliminating coverage of 14 key EUV lines and
+        substantially diminishing the scientific return.
+
+        **Virtual EVE** restores this lost measurement capability using deep
+        learning. By training on the four years of overlapping AIA imagery and
+        EVE measurements (2010–2014), the model learns to predict what MEGS-A
+        *would* have measured — effectively virtualising the broken instrument
+        without any hardware repair.
+        """
+    )
+
+    st.write("### Model Architecture")
+    st.write(
+        r"""
+        The model uses a **hybrid Linear + EfficientNet CNN** architecture:
+
+        $$O_{\text{total}} = O_{\text{linear}} + \lambda \cdot O_{\text{CNN}}$$
+
+        - **Linear component** — a single-layer feedforward network that
+          captures the bulk relationship between mean/std image statistics and
+          irradiance.
+        - **CNN component** — an **EfficientNet-B5** backbone (~30M parameters)
+          that extracts spatial features from the full 512 x 512 px images.
+        - **Two-phase training** — the linear model is trained first (20 epochs),
+          then the CNN is activated while the linear weights are frozen
+          (30 epochs), ensuring stable convergence.
+        - **Loss function** — Huber Loss, which is robust to outliers compared
+          to traditional MSE.
+
+        **Input:** 9 SDO/AIA channels (94, 131, 171, 193, 211, 304, 335, 1600,
+        1700 Angstrom) at 512 x 512 px resolution.
+
+        **Output:** **38 EVE ion channels** — covering both MEGS-A and MEGS-B
+        spectral lines.
+        """
+    )
+
+    st.write("### Key Results")
+    st.write(
+        """
+        - **AIA imagery alone is sufficient** to predict solar irradiance —
+          adding HMI magnetogram data does not improve predictions, contrary
+          to theoretical expectations.
+        - Predicts **38 spectral lines**, nearly **3x** the 14 lines achieved
+          by previous state-of-the-art (Szenicer et al. 2019).
+        - Achieves similar or better accuracy than prior deep-learning
+          approaches, and **outperforms the physics-based DeepEM model**
+          (Wright et al. 2019).
+        - Predictions for MEGS-B lines can be **cross-validated against live
+          measurements**, providing ongoing quality assurance.
+        - Strongest predictions occur for ions whose wavelengths are close to
+          AIA channel frequencies (e.g., Fe IX at 171.1 Angstrom).
+        """
+    )
+
+    st.write("### How This Demo Works")
+    st.write(
+        """
         1. AIA images (9 EUV/UV wavelengths, 512 x 512 px) are loaded from the
-           SDOML v2 dataset on AWS S3.
-        2. Images are normalized using training-set statistics.
-        3. The model predicts irradiance for 38 EVE spectral lines.
+           SDOML v2 dataset.
+        2. Images are normalized using training-set statistics stored in the
+           model checkpoint.
+        3. The pre-trained model predicts irradiance for all 38 EVE spectral
+           lines — **on the fly, in real time**.
+        """
+    )
 
-        ### Credits
+    st.write("### Reference")
+    st.write(
+        """
+        Indaco, M., Gass, D., Fawcett, W. J., Galvez, R., Wright, P. J., &
+        Muñoz-Jaramillo, A. (2024). *Virtual EVE: a Deep Learning Model for
+        Solar Irradiance Prediction.*
+        [arXiv:2408.17430](https://arxiv.org/abs/2408.17430)
+        """
+    )
+
+    st.write("### Credits")
+    st.write(
+        """
         Built during **FDL-X 2023** (Frontier Development Lab) by
-        William Fawcett, Richard Galvez, Daniel Gass, Manuel Indaco,
-        Andrés Muñoz-Jaramillo, and Paul Wright.
+        Manuel Indaco, Daniel Gass, William Fawcett, Richard Galvez,
+        Paul Wright, and Andrés Muñoz-Jaramillo.
 
-        **Data source:** SDOML v2 — `s3://nasa-radiant-data/helioai-datasets/us-fdlx-ard/sdomlv2a/`
+        **Data source:** SDOML v2 — [sdoml.org](https://sdoml.org)
         """
     )
     st.image("assets/nasa_sdo.png", width=400)
