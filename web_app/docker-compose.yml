@@ -3,9 +3,8 @@ services:
     build: .
     ports:
       - "8501:8501"
-    environment:
-      - DATA_BACKEND=local
-      - LOCAL_DATA_ROOT=/data
+    env_file:
+      - .env
     volumes:
-      - /Users/wfawcett/Documents/trillium/code/2023-FDL-X-ARD-EVE/web_app/DATA_TEST
+      - ${HOST_DATA_PATH}:/data
       - ./cache:/app/cache

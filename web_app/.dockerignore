@@ -9,3 +9,4 @@ cache/
 .Dockerfile.swp
 .docker-compose.yml.swp
 README.md
+.env

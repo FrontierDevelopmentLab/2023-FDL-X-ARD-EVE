@@ -16,14 +16,11 @@ AIA_WAVELENGTHS = ["131A", "1600A", "1700A", "171A", "193A", "211A", "304A", "33
 # Default: local filesystem at LOCAL_DATA_ROOT.
 
 DATA_BACKEND = os.environ.get("DATA_BACKEND", "local")
-LOCAL_DATA_ROOT = Path(os.environ.get(
-    "LOCAL_DATA_ROOT",
-    "/mnt/volume4/isidore-volume-4/projects/us-fdl-x/us-fdlx-ard-sdomlv2a",
-))
+LOCAL_DATA_ROOT = Path(os.environ.get("LOCAL_DATA_ROOT", "/data"))
 
-S3_BUCKET = "nasa-radiant-data"
-AIA_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/AIA.zarr"
-HMI_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/HMI.zarr"
+S3_BUCKET = os.environ.get("S3_BUCKET", "nasa-radiant-data")
+AIA_ZARR_PREFIX = os.environ.get("AIA_ZARR_PREFIX", "helioai-datasets/us-fdlx-ard/sdomlv2a/AIA.zarr")
+HMI_ZARR_PREFIX = os.environ.get("HMI_ZARR_PREFIX", "helioai-datasets/us-fdlx-ard/sdomlv2a/HMI.zarr")
 
 CACHE_DIR = Path(__file__).parent / "cache"
 INDEX_CACHE = CACHE_DIR / "aia_time_index.csv"

@@ -67,7 +67,7 @@ st.markdown(
 )
 st.write("#")
 
-page = st.selectbox("Select Page", ("Virtual EVE", "About"))
+tab_eve, tab_about = st.tabs(["Virtual EVE", "About"])
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -101,12 +101,10 @@ with st.sidebar:
     end_dt = datetime.datetime.combine(end_date, end_time)
 
     valid = start_dt <= end_dt
-    if not valid:
-        st.error("Start date must be before end date.")
 
 # ── Pages ────────────────────────────────────────────────────────────────────
 
-if page == "About":
+with tab_about:
     st.write("## About")
 
     st.write(
@@ -211,8 +209,10 @@ if page == "About":
     )
     st.image("assets/nasa_sdo.png", width=400)
 
-elif valid:
-    if st.sidebar.button("Analyze", type="primary"):
+with tab_eve:
+    if not valid:
+        st.error("Start date must be before end date.")
+    elif st.sidebar.button("Analyze", type="primary"):
         # Get available timestamps in range
         ts_df = get_timestamps_in_range(time_index, start_dt, end_dt)
 
