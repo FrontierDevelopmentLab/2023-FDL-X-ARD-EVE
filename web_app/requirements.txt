@@ -1,0 +1,10 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+numpy>=2.0
+pandas>=2.0
+plotly>=5.0
+pytorch-lightning>=2.0
+s3fs>=2024.0
+streamlit>=1.30
+torch>=2.0
+torchvision>=0.15
+zarr>=3.0
