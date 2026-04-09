@@ -29,6 +29,7 @@ web_app/
 ├── requirements.txt      # Python dependencies
 ├── Dockerfile            # Container image (python:3.12-slim)
 ├── docker-compose.yml    # Docker service orchestration
+├── .env                  # Environment variables (local paths, data backend config)
 ├── checkpoints/          # Pre-trained model checkpoint (~43 MB)
 ├── cache/                # Cached time index (built on first run)
 └── assets/               # Logo and icon images
@@ -38,17 +39,24 @@ web_app/
 
 ### Docker (recommended)
 
-1. Edit `docker-compose.yml` to set the data volume path to your local copy of the SDOMLv2 AIA Zarr dataset:
+1. Copy `.env.example` or create a `.env` file in the `web_app/` directory and set `HOST_DATA_PATH` to your local copy of the SDOMLv2 AIA Zarr dataset:
 
-   ```yaml
-   volumes:
-     - /path/to/your/sdomlv2a:/data:ro
+   ```env
+   HOST_DATA_PATH=/path/to/your/sdomlv2a
    ```
+
+   See the `.env` file for all available settings (data backend, S3 bucket, etc.).
 
 2. Build and run:
 
    ```bash
-   docker-compose up --build
+   docker compose up --build
+   ```
+
+   To pass the env file explicitly (e.g. from a different location):
+
+   ```bash
+   docker compose --env-file /path/to/.env up --build
    ```
 
 3. Open http://localhost:8501.
@@ -64,12 +72,18 @@ streamlit run main.py
 
 ## Configuration
 
+All configuration is managed via the `.env` file (git-ignored). The `.env` file is automatically loaded by `docker compose`.
+
 | Environment Variable | Default | Description |
 |---|---|---|
 | `DATA_BACKEND` | `local` | Data source: `local` or `s3` |
-| `LOCAL_DATA_ROOT` | (see `data_access.py`) | Path to the SDOMLv2 AIA Zarr dataset |
+| `HOST_DATA_PATH` | — | Host path to the SDOMLv2 AIA Zarr dataset (mounted into the container) |
+| `LOCAL_DATA_ROOT` | `/data` | Container-internal mount point for the data |
+| `S3_BUCKET` | `nasa-radiant-data` | S3 bucket name (used when `DATA_BACKEND=s3`) |
+| `AIA_ZARR_PREFIX` | `helioai-datasets/us-fdlx-ard/sdomlv2a/AIA.zarr` | S3 prefix for AIA Zarr store |
+| `HMI_ZARR_PREFIX` | `helioai-datasets/us-fdlx-ard/sdomlv2a/HMI.zarr` | S3 prefix for HMI Zarr store |
 
-When `DATA_BACKEND=s3`, the app reads from the `nasa-radiant-data` S3 bucket (path: `helioai-datasets/us-fdlx-ard/sdomlv2a/AIA.zarr`). No credentials are required for public access.
+When `DATA_BACKEND=s3`, the app reads from S3. No credentials are required for public access.
 
 ## Data
 
