@@ -1,0 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+fastapi~=0.118.0
+uvicorn[standard]~=0.30.0
+pydantic~=2.9.0
+numpy>=2.0
+pandas>=2.0
+pyarrow>=15.0
+pytorch-lightning>=2.0
+s3fs>=2024.0
+torch>=2.0
+torchvision>=0.15
+zarr>=3.0
+pytest~=8.0
