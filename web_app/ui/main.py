@@ -7,21 +7,15 @@ pre-trained Virtual EVE irradiance model.
 
 import datetime
 import io
+import os
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from core.data_access import (
-    AIA_WAVELENGTHS,
-    build_time_index,
-    get_aia_image,
-    get_aia_root,
-    get_available_dates,
-    get_timestamps_in_range,
-)
-from core.inference import load_model, predict_eve_timeseries
+from core.data_access import AIA_WAVELENGTHS, build_time_index, get_aia_image, get_aia_root
+from ui.api_client import APIClient
 
 # ── Page config ──────────────────────────────────────────────────────────────
 
@@ -39,25 +33,37 @@ st.markdown(
 # ── Cached resources (loaded once) ──────────────────────────────────────────
 
 
-@st.cache_resource(show_spinner="Connecting to S3 data store...")
-def init_aia():
+API_URL = os.environ.get("API_URL", "http://localhost:8000")
+
+
+@st.cache_resource(show_spinner="Connecting to API...")
+def init_client():
+    return APIClient(API_URL)
+
+
+@st.cache_resource(show_spinner="Reading API metadata...")
+def init_info(_client: APIClient):
+    return _client.info()
+
+
+@st.cache_resource(show_spinner="Connecting to AIA Zarr store...")
+def init_aia_root():
     return get_aia_root()
 
 
-@st.cache_resource(show_spinner="Building time index (first run may take a few minutes)...")
-def init_time_index(_aia_root):
+@st.cache_resource(show_spinner="Loading time index for AIA images...")
+def init_time_index_for_images(_aia_root):
     return build_time_index(_aia_root)
 
 
-@st.cache_resource(show_spinner="Loading Virtual EVE model...")
-def init_model():
-    return load_model()
+client = init_client()
+info = init_info(client)
+aia_root = init_aia_root()
+time_index = init_time_index_for_images(aia_root)
 
-
-aia_root = init_aia()
-time_index = init_time_index(aia_root)
-model, aia_norms, wavelengths, eve_ions = init_model()
-date_min, date_max = get_available_dates(time_index)
+eve_ions = info["eve_ions"]
+date_min = pd.to_datetime(info["available_dates"]["min"])
+date_max = pd.to_datetime(info["available_dates"]["max"])
 
 # ── Header ───────────────────────────────────────────────────────────────────
 
@@ -213,28 +219,20 @@ if page == "About":
 
 elif valid:
     if st.sidebar.button("Analyze", type="primary"):
-        # Get available timestamps in range
-        ts_df = get_timestamps_in_range(time_index, start_dt, end_dt)
+        # Empty-range check happens after the API call by inspecting eve_data.
 
-        if ts_df.empty:
+        # ── Run inference ────────────────────────────────────────────────
+        with st.spinner("Running inference via API..."):
+            eve_data = client.predict_range(start_dt, end_dt)
+
+        if eve_data.empty:
             st.warning("No data available in the selected range.")
             st.stop()
 
-        timestamps = ts_df.index.tolist()
-        st.sidebar.info(f"Found {len(timestamps)} timestamps in range.")
-
-        # ── Run inference ────────────────────────────────────────────────
-        with st.spinner(f"Running inference on {len(timestamps)} images..."):
-            eve_data = predict_eve_timeseries(
-                model, aia_root, time_index, aia_norms, wavelengths, eve_ions, timestamps
-            )
-
-        if eve_data.empty:
-            st.warning("Could not load AIA data for the selected range.")
-            st.stop()
+        st.sidebar.info(f"Found {len(eve_data)} timestamps in range.")
 
         # ── Load AIA image for the first timestamp ───────────────────────
-        first_ts = timestamps[0]
+        first_ts = eve_data.index[0]
         with st.spinner("Loading AIA images..."):
             aia_image = get_aia_image(aia_root, time_index, first_ts)
 
