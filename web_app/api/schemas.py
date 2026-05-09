@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class AvailableDates(BaseModel):
@@ -12,6 +12,8 @@ class AvailableDates(BaseModel):
 
 
 class InfoResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     model_name: str
     aia_wavelengths: list[str]
     eve_ions: list[str]
