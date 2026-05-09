@@ -26,7 +26,7 @@ AIA_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/AIA.zarr"
 HMI_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/HMI.zarr"
 
 CACHE_DIR = Path(__file__).parent.parent / "cache"
-INDEX_CACHE = CACHE_DIR / "aia_time_index.csv"
+INDEX_CACHE = CACHE_DIR / "aia_time_index.parquet"
 
 # ── S3 helpers (only used when DATA_BACKEND=s3) ────────────────────────────
 
@@ -101,9 +101,7 @@ def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
     First run reads metadata (parallel), subsequent runs use cache.
     """
     if INDEX_CACHE.exists():
-        df = pd.read_csv(INDEX_CACHE, parse_dates=["Time"])
-        df.set_index("Time", inplace=True)
-        return df
+        return pd.read_parquet(INDEX_CACHE)
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -152,7 +150,7 @@ def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
             join_series = join_series.join(df_wl[[f"idx_{wl}"]], how="inner")
 
     join_series.sort_index(inplace=True)
-    join_series.to_csv(INDEX_CACHE)
+    join_series.to_parquet(INDEX_CACHE)
     return join_series
 
 
