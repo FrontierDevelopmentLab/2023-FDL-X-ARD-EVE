@@ -196,6 +196,24 @@ Starting (503):
 
 Endpoints read state from `app.state`. `/health` reads `_ready`.
 
+## Cache format change (CSV → parquet)
+
+The current `core/data_access.py` caches the time index as
+`cache/aia_time_index.csv`. As part of this work the format moves to
+`cache/aia_time_index.parquet`. Reasons:
+
+- The cache becomes a shared file (API writes, UI reads); parquet's typed
+  schema removes round-tripping pitfalls (no `parse_dates=` hint, integer
+  columns stay integer).
+- Faster to read and smaller on disk for ~hundreds of thousands of rows.
+- `pyarrow` (the parquet engine) is already a transitive dep of streamlit,
+  so the cost on the UI side is zero. The API gets a new explicit dep.
+
+`build_time_index` swaps `to_csv`/`read_csv` for `to_parquet`/`read_parquet`
+with the index column preserved. The on-disk file path changes from
+`aia_time_index.csv` to `aia_time_index.parquet`. Existing CSV caches in
+`cache/` are not migrated; the first run after deploy rebuilds the index.
+
 ## Streamlit refactor (`ui/main.py`)
 
 After the refactor:
@@ -209,7 +227,7 @@ After the refactor:
   column per ion — the same shape the existing plotly code expects.
 - The AIA images panel still calls `core.data_access.get_aia_image(...)`. The
   UI keeps a small cached `aia_root` plus a minimal time-index lookup
-  (loaded from the same CSV cache as the API) for image retrieval only.
+  (loaded from the same parquet cache as the API) for image retrieval only.
 - `API_URL` comes from env. Default `http://api:8000` (compose);
   `http://localhost:8000` for standalone `streamlit run`.
 
@@ -247,15 +265,14 @@ Streamlit can swap with no other shape changes.
 `api/tests/test_api.py` uses `fastapi.testclient.TestClient`. The TestClient
 triggers the lifespan, so the model and time index load on construction.
 
-A small test fixture is needed at `web_app/DATA_TEST/AIA.zarr` containing a
-handful of timestamps across a couple of years. The directory exists today
-but is empty; populating it (either by extracting a slice from the real
-dataset or by generating a synthetic Zarr with the right schema) is part of
-the implementation. The fixture is checked in to the repo alongside the
-checkpoint so tests run offline.
+Tests assume the data backend is configured on the machine running them
+(`DATA_BACKEND=s3` for the public Zarr, or `DATA_BACKEND=local` with
+`LOCAL_DATA_ROOT` pointed at a real dataset). No checked-in test fixture
+is required. The intended workflow is: write the code locally, deploy to
+the server where the data lives, run tests there.
 
-`conftest.py` sets `DATA_BACKEND=local` and `LOCAL_DATA_ROOT` to point at
-`DATA_TEST/` before the lifespan runs.
+`conftest.py` reads the same environment variables `core.data_access`
+already honors and sanity-checks they're set.
 
 Coverage:
 - `test_info_returns_metadata` — 38 ions, 9 wavelengths, parseable dates.
@@ -283,6 +300,7 @@ uvicorn[standard]~=0.30.0
 pydantic~=2.9.0
 numpy>=2.0
 pandas>=2.0
+pyarrow>=15.0
 pytorch-lightning>=2.0
 s3fs>=2024.0
 torch>=2.0
@@ -290,6 +308,8 @@ torchvision>=0.15
 zarr>=3.0
 pytest~=8.0
 ```
+
+(`pyarrow` is the parquet engine for the time-index cache.)
 
 `ui/requirements.txt`:
 
@@ -318,10 +338,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATA_BACKEND=local
+      - DATA_BACKEND=${DATA_BACKEND:-local}
       - LOCAL_DATA_ROOT=/data
     volumes:
-      - ./DATA_TEST:/data:ro
+      - ${HOST_DATA_PATH:-./DATA_TEST}:/data:ro
       - ./cache:/app/cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -338,19 +358,24 @@ services:
       - "8501:8501"
     environment:
       - API_URL=http://api:8000
-      - DATA_BACKEND=local
+      - DATA_BACKEND=${DATA_BACKEND:-local}
       - LOCAL_DATA_ROOT=/data
     volumes:
-      - ./DATA_TEST:/data:ro
+      - ${HOST_DATA_PATH:-./DATA_TEST}:/data:ro
       - ./cache:/app/cache:ro
     depends_on:
       api:
         condition: service_healthy
 ```
 
-The UI mounts `cache/` read-only because it consults the same time-index CSV
-the API built — a deliberate, narrow shared dependency that keeps image
-fetching cheap. The API owns writes.
+`HOST_DATA_PATH` defaults to the (empty) `DATA_TEST` directory so the
+compose file is valid on this dev machine. Deployment sets it via `.env`
+or environment to the actual data path on the server. To use S3 instead,
+set `DATA_BACKEND=s3` and the volume mount becomes irrelevant.
+
+The UI mounts `cache/` read-only because it consults the same time-index
+parquet the API built — a deliberate, narrow shared dependency that keeps
+image fetching cheap. The API owns writes.
 
 ## Risks and open questions
 
@@ -364,9 +389,6 @@ fetching cheap. The API owns writes.
 - **First request after startup may be slow.** The time index is loaded but
   Zarr chunks are not pre-fetched. Acceptable for a demo; revisit if it
   becomes a real concern.
-- **Test fixture must be created.** `web_app/DATA_TEST/` exists but is
-  empty. The implementation must populate it (a small slice of the real
-  Zarr or a synthetic equivalent) before the test suite can run.
 
 ## Migration steps (high-level)
 
