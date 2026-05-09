@@ -22,3 +22,15 @@ def test_health_returns_ready_after_lifespan(client):
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ready"}
+
+
+def test_info_returns_metadata(client):
+    resp = client.get("/info")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["model_name"] == "AIA_MEGS_20_30_epochs_36min"
+    assert len(body["aia_wavelengths"]) == 9
+    assert len(body["eve_ions"]) == 38
+    assert "min" in body["available_dates"]
+    assert "max" in body["available_dates"]

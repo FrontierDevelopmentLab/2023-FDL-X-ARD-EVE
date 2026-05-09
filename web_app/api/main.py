@@ -50,3 +50,17 @@ def health():
         status_code=503,
         content={"status": "starting"},
     )
+
+
+@app.get("/info", response_model=schemas.InfoResponse)
+def info():
+    ti = app.state.time_index
+    return schemas.InfoResponse(
+        model_name="AIA_MEGS_20_30_epochs_36min",
+        aia_wavelengths=app.state.wavelengths,
+        eve_ions=app.state.eve_ions,
+        available_dates=schemas.AvailableDates(
+            min=ti.index.min().to_pydatetime(),
+            max=ti.index.max().to_pydatetime(),
+        ),
+    )
