@@ -97,7 +97,7 @@ def _discover_years() -> list[str]:
 def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
     """Build a mapping from timestamp -> (year, index) for each AIA wavelength.
 
-    Uses T_OBS attrs from the Zarr store. Caches result to CSV.
+    Uses T_OBS attrs from the Zarr store. Caches result to parquet.
     First run reads metadata (parallel), subsequent runs use cache.
     """
     if INDEX_CACHE.exists():
