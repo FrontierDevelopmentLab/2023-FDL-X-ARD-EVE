@@ -87,17 +87,21 @@ with st.sidebar:
     )
     st.caption(f"Data available from **{date_min.date()}** to **{date_max.date()}**")
 
+    # Clamp the showcase default into the available range so the widget doesn't
+    # crash on deployments where 2017-09-06 falls outside the indexed data.
+    _default = min(max(datetime.date(2017, 9, 6), date_min.date()), date_max.date())
+
     st.write("## Select Date Range")
     start_date = st.date_input(
         "Start Date",
-        value=datetime.date(2017, 9, 6),
+        value=_default,
         min_value=date_min.date(),
         max_value=date_max.date(),
     )
     start_time = st.time_input("Start Time", datetime.time(0, 0), step=datetime.timedelta(minutes=36))
     end_date = st.date_input(
         "End Date",
-        value=datetime.date(2017, 9, 6),
+        value=_default,
         min_value=date_min.date(),
         max_value=date_max.date(),
     )
