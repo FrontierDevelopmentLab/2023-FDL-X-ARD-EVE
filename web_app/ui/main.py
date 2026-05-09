@@ -13,7 +13,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from data_access import (
+from core.data_access import (
     AIA_WAVELENGTHS,
     build_time_index,
     get_aia_image,
@@ -21,13 +21,13 @@ from data_access import (
     get_available_dates,
     get_timestamps_in_range,
 )
-from inference import load_model, predict_eve_timeseries
+from core.inference import load_model, predict_eve_timeseries
 
 # ── Page config ──────────────────────────────────────────────────────────────
 
 st.set_page_config(
     page_title="Virtual EVE — Solar Irradiance Demo",
-    page_icon="assets/sdo_icon.jpeg",
+    page_icon="ui/assets/sdo_icon.jpeg",
     layout="wide",
 )
 
@@ -72,7 +72,7 @@ page = st.selectbox("Select Page", ("Virtual EVE", "About"))
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.image("assets/fdlx.png", width=280)
+    st.image("ui/assets/fdlx.png", width=280)
     st.write("#")
     st.write(
         "Welcome to the Virtual EVE Demo. This app predicts solar EUV "
@@ -209,7 +209,7 @@ if page == "About":
         **Data source:** SDOML v2 — [sdoml.org](https://sdoml.org)
         """
     )
-    st.image("assets/nasa_sdo.png", width=400)
+    st.image("ui/assets/nasa_sdo.png", width=400)
 
 elif valid:
     if st.sidebar.button("Analyze", type="primary"):

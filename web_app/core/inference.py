@@ -9,7 +9,7 @@ import torch
 
 # Ensure model classes are importable when torch.load unpickles the checkpoint.
 # The checkpoint was pickled with the full module path from the training repo.
-import model as _model_module
+from . import model as _model_module
 
 sys.modules["src"] = type(sys)("src")
 sys.modules["src.irradiance"] = type(sys)("src.irradiance")
@@ -60,7 +60,7 @@ def predict_eve_timeseries(
     model, aia_root, time_index, aia_norms, wavelengths, eve_ions, timestamps
 ) -> pd.DataFrame:
     """Run inference for multiple timestamps and return a DataFrame."""
-    from data_access import get_aia_image
+    from .data_access import get_aia_image
 
     rows = []
     for ts in timestamps:

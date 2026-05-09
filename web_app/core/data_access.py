@@ -25,7 +25,7 @@ S3_BUCKET = "nasa-radiant-data"
 AIA_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/AIA.zarr"
 HMI_ZARR_PREFIX = "helioai-datasets/us-fdlx-ard/sdomlv2a/HMI.zarr"
 
-CACHE_DIR = Path(__file__).parent / "cache"
+CACHE_DIR = Path(__file__).parent.parent / "cache"
 INDEX_CACHE = CACHE_DIR / "aia_time_index.csv"
 
 # ── S3 helpers (only used when DATA_BACKEND=s3) ────────────────────────────
