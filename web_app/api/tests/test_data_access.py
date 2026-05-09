@@ -39,3 +39,43 @@ def test_build_time_index_reads_parquet_cache(tmp_path, monkeypatch):
 def test_index_cache_filename_is_parquet():
     """The cache constant should point at a .parquet file."""
     assert data_access.INDEX_CACHE.suffix == ".parquet"
+
+
+import datetime as _dt
+
+
+def _build_fake_index() -> pd.DataFrame:
+    return pd.DataFrame(
+        {"year": [2017] * 3, **{f"idx_{wl}": [0, 1, 2] for wl in data_access.AIA_WAVELENGTHS}},
+        index=pd.DatetimeIndex(
+            [
+                "2017-09-06 00:00:00",
+                "2017-09-06 00:36:00",
+                "2017-09-06 01:12:00",
+            ],
+            name="Time",
+        ),
+    )
+
+
+def test_find_nearest_indexed_timestamp_snaps_within_range():
+    idx = _build_fake_index()
+    snapped = data_access.find_nearest_indexed_timestamp(
+        idx, _dt.datetime(2017, 9, 6, 0, 30, 0)
+    )
+    assert snapped == pd.Timestamp("2017-09-06 00:36:00")
+
+
+def test_find_nearest_indexed_timestamp_returns_none_when_out_of_range():
+    idx = _build_fake_index()
+    snapped = data_access.find_nearest_indexed_timestamp(
+        idx, _dt.datetime(2010, 1, 1, 0, 0, 0)
+    )
+    assert snapped is None
+
+
+def test_find_nearest_indexed_timestamp_strips_timezone():
+    idx = _build_fake_index()
+    aware = _dt.datetime(2017, 9, 6, 0, 30, 0, tzinfo=_dt.timezone.utc)
+    snapped = data_access.find_nearest_indexed_timestamp(idx, aware)
+    assert snapped == pd.Timestamp("2017-09-06 00:36:00")

@@ -167,6 +167,27 @@ def get_timestamps_in_range(time_index: pd.DataFrame, start, end) -> pd.DataFram
     return time_index[mask]
 
 
+def find_nearest_indexed_timestamp(
+    time_index: pd.DataFrame, ts
+) -> pd.Timestamp | None:
+    """Round ts to 36 minutes and snap to the nearest indexed timestamp.
+
+    Returns None if the snapped value would fall outside [index.min, index.max].
+    """
+    ts = pd.to_datetime(ts)
+    if ts.tzinfo is not None:
+        ts = ts.tz_convert("UTC").tz_localize(None)
+    rounded = ts.round("36min")
+
+    if rounded < time_index.index.min() or rounded > time_index.index.max():
+        return None
+
+    idx_loc = time_index.index.get_indexer([rounded], method="nearest")
+    if idx_loc[0] == -1:
+        return None
+    return time_index.index[idx_loc[0]]
+
+
 def get_aia_image(aia_root, time_index: pd.DataFrame, timestamp) -> dict | None:
     """Load AIA images for all wavelengths at a given timestamp.
 
