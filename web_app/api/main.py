@@ -101,3 +101,27 @@ def predict(req: schemas.PredictRequest):
         timestamp=snapped.to_pydatetime(),
         predictions={ion: float(pred[i]) for i, ion in enumerate(app.state.eve_ions)},
     )
+
+
+@app.post("/predict-range", response_model=schemas.PredictRangeResponse)
+def predict_range(req: schemas.PredictRangeRequest):
+    timestamps = data_access.get_timestamps_in_range(
+        app.state.time_index, req.start, req.end
+    ).index.tolist()
+    df = inference.predict_eve_timeseries(
+        app.state.model,
+        app.state.aia_root,
+        app.state.time_index,
+        app.state.aia_norms,
+        app.state.wavelengths,
+        app.state.eve_ions,
+        timestamps,
+    )
+
+    if df.empty:
+        return schemas.PredictRangeResponse(count=0, predictions=[])
+
+    df = df.reset_index()
+    df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    records = df.to_dict(orient="records")
+    return schemas.PredictRangeResponse(count=len(records), predictions=records)

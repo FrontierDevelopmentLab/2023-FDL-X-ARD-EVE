@@ -72,3 +72,38 @@ def test_predict_out_of_range_returns_422(client):
 def test_predict_invalid_iso_returns_422(client):
     resp = client.post("/predict", json={"timestamp": "not a date"})
     assert resp.status_code == 422
+
+
+def test_predict_range_returns_records_for_valid_range(client):
+    info = client.get("/info").json()
+    start = info["available_dates"]["min"]
+    # 1 hour after start -> should include ~2 timestamps at 36-min cadence
+    from datetime import datetime, timedelta
+    end = (datetime.fromisoformat(start) + timedelta(hours=1)).isoformat()
+
+    resp = client.post("/predict-range", json={"start": start, "end": end})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] >= 1
+    assert len(body["predictions"]) == body["count"]
+    # Each record carries the timestamp + 38 ions
+    first = body["predictions"][0]
+    assert "timestamp" in first
+    assert len(first) == 39
+
+
+def test_predict_range_empty_returns_zero_count(client):
+    resp = client.post(
+        "/predict-range",
+        json={"start": "1999-01-01T00:00:00", "end": "1999-01-01T01:00:00"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"count": 0, "predictions": []}
+
+
+def test_predict_range_inverted_returns_422(client):
+    resp = client.post(
+        "/predict-range",
+        json={"start": "2017-09-06T12:00:00", "end": "2017-09-06T00:00:00"},
+    )
+    assert resp.status_code == 422
