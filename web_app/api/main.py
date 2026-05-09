@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 
+import torch
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -63,4 +64,40 @@ def info():
             min=ti.index.min().to_pydatetime(),
             max=ti.index.max().to_pydatetime(),
         ),
+    )
+
+
+@app.post("/predict", response_model=schemas.PredictResponse)
+def predict(req: schemas.PredictRequest):
+    snapped = data_access.find_nearest_indexed_timestamp(
+        app.state.time_index, req.timestamp
+    )
+    if snapped is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "timestamp is outside the indexed date range "
+                f"[{app.state.time_index.index.min().isoformat()}, "
+                f"{app.state.time_index.index.max().isoformat()}]"
+            ),
+        )
+
+    aia_image = data_access.get_aia_image(
+        app.state.aia_root, app.state.time_index, snapped
+    )
+    if aia_image is None:
+        raise HTTPException(
+            status_code=422,
+            detail="no AIA data available at the snapped timestamp",
+        )
+
+    x = inference.normalize_aia_image(
+        aia_image, app.state.aia_norms, app.state.wavelengths
+    )
+    with torch.no_grad():
+        pred = app.state.model.forward_unnormalize(x).numpy()[0]
+
+    return schemas.PredictResponse(
+        timestamp=snapped.to_pydatetime(),
+        predictions={ion: float(pred[i]) for i, ion in enumerate(app.state.eve_ions)},
     )
