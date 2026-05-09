@@ -2,8 +2,11 @@
 
 These tests need a configured DATA_BACKEND (local with a real
 LOCAL_DATA_ROOT, or s3) so the lifespan can load the model and time
-index. On a dev machine without data access, skip with
-`-k 'not requires_data'`.
+index. The conftest fixture in this directory prints a soft warning
+if the environment isn't configured; the tests themselves will then
+fail at the module-level client fixture rather than skip gracefully.
+Run them on a machine with data access (deployment server, or a dev
+machine with LOCAL_DATA_ROOT pointed at a real or fixture Zarr).
 """
 
 import pytest
