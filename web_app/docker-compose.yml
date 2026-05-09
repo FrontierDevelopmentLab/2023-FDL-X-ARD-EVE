@@ -1,11 +1,36 @@
 services:
-  web:
-    build: .
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATA_BACKEND=${DATA_BACKEND:-local}
+      - LOCAL_DATA_ROOT=/data
+    volumes:
+      - ${HOST_DATA_PATH:-./DATA_TEST}:/data:ro
+      - ./cache:/app/cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
     ports:
       - "8501:8501"
     environment:
-      - DATA_BACKEND=local
+      - API_URL=http://api:8000
+      - DATA_BACKEND=${DATA_BACKEND:-local}
       - LOCAL_DATA_ROOT=/data
     volumes:
-      - /Users/wfawcett/Documents/trillium/code/2023-FDL-X-ARD-EVE/web_app/DATA_TEST
-      - ./cache:/app/cache
+      - ${HOST_DATA_PATH:-./DATA_TEST}:/data:ro
+      - ./cache:/app/cache:ro
+    depends_on:
+      api:
+        condition: service_healthy
