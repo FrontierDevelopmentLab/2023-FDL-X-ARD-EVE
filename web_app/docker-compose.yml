@@ -8,6 +8,7 @@ services:
     environment:
       - DATA_BACKEND=${DATA_BACKEND:-local}
       - LOCAL_DATA_ROOT=/data
+      - PYTHONUNBUFFERED=1            # so startup logs flush before any OOM kill
     volumes:
       - ${HOST_DATA_PATH:-./DATA_TEST}:/data:ro
       - ./cache:/app/cache
@@ -28,6 +29,7 @@ services:
       - API_URL=http://api:8000
       - DATA_BACKEND=${DATA_BACKEND:-local}
       - LOCAL_DATA_ROOT=/data
+      - PYTHONUNBUFFERED=1
     volumes:
       - ${HOST_DATA_PATH:-./DATA_TEST}:/data:ro
       - ./cache:/app/cache:ro
