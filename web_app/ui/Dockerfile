@@ -15,6 +15,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# `streamlit run ui/main.py` puts ui/ on sys.path, not the workdir, so the
+# shared `core` package wouldn't be importable without this.
+ENV PYTHONPATH=/app
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*

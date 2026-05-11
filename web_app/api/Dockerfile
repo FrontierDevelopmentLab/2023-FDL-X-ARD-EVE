@@ -15,6 +15,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Make the shared `core` package importable regardless of how the process is
+# launched (uvicorn happens to add the cwd, but be explicit).
+ENV PYTHONPATH=/app
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
