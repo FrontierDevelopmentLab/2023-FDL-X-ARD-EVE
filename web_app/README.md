@@ -118,6 +118,8 @@ When `DATA_BACKEND=s3`, the app reads from the `nasa-radiant-data` S3 bucket (pa
 
 The model uses the [SDOML v2 dataset](https://sdoml.org). On first run, the API builds a time index mapping timestamps to image indices and caches it as `cache/aia_time_index.parquet` for subsequent runs. The UI reads the same parquet read-only for its imagery panel.
 
+Timestamps are snapped to a **36-minute grid** (`core.data_access.MODEL_CADENCE`). AIA records its 9 wavelengths a few seconds apart, so the raw per-wavelength timestamps need a common bin to be joined into one row per observation; 36 minutes is also the cadence the model was trained at, and incoming request timestamps are rounded to the same grid so a query always resolves to a definite slot.
+
 ## Authors
 
 Manuel Indaco, Daniel Gass, William Fawcett, Richard Galvez, Paul Wright, and Andres Munoz-Jaramillo.

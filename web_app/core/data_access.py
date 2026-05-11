@@ -11,6 +11,18 @@ import zarr
 
 AIA_WAVELENGTHS = ["131A", "1600A", "1700A", "171A", "193A", "211A", "304A", "335A", "94A"]
 
+# Every AIA observation — and every incoming request timestamp — is snapped to
+# this grid before it is used as a lookup key. Two reasons:
+#   1. AIA records each of the 9 wavelengths a few seconds apart, so the raw
+#      per-wavelength T_OBS values never line up exactly. Rounding them to a
+#      shared bin gives one key per observation cycle, which is what lets the
+#      per-wavelength inner-join in build_time_index actually produce rows.
+#   2. The pre-trained model (AIA_MEGS_20_30_epochs_36min.ckpt) was trained on
+#      SDOML samples at 36-minute cadence, so there is nothing to gain from a
+#      finer index — and request timestamps are rounded the same way so a
+#      query resolves deterministically regardless of the exact second asked.
+MODEL_CADENCE = "36min"
+
 # ── Backend configuration ───────────────────────────────────────────────────
 # Set DATA_BACKEND=s3 to fall back to reading from AWS S3.
 # Default: local filesystem at LOCAL_DATA_ROOT.
@@ -149,7 +161,9 @@ def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
         df_wl = pd.concat(frames, ignore_index=True)
         del frames
         df_wl = df_wl.dropna(subset=["Time"]).copy()
-        df_wl["Time"] = df_wl["Time"].dt.tz_localize(None).dt.round("36min")
+        # Snap onto the model's observation grid (see MODEL_CADENCE) and keep
+        # the first frame that lands in each bin.
+        df_wl["Time"] = df_wl["Time"].dt.tz_localize(None).dt.round(MODEL_CADENCE)
         df_wl = df_wl.drop_duplicates(subset="Time", keep="first").set_index("Time")
 
         if join_index is None:
@@ -187,14 +201,15 @@ def get_timestamps_in_range(time_index: pd.DataFrame, start, end) -> pd.DataFram
 def find_nearest_indexed_timestamp(
     time_index: pd.DataFrame, ts
 ) -> pd.Timestamp | None:
-    """Round ts to 36 minutes and snap to the nearest indexed timestamp.
+    """Round ts onto the model grid (see MODEL_CADENCE) and snap to the nearest
+    indexed timestamp.
 
     Returns None if the snapped value would fall outside [index.min, index.max].
     """
     ts = pd.to_datetime(ts)
     if ts.tzinfo is not None:
         ts = ts.tz_convert("UTC").tz_localize(None)
-    rounded = ts.round("36min")
+    rounded = ts.round(MODEL_CADENCE)
 
     if rounded < time_index.index.min() or rounded > time_index.index.max():
         return None
@@ -211,7 +226,7 @@ def get_aia_image(aia_root, time_index: pd.DataFrame, timestamp) -> dict | None:
     Returns dict mapping wavelength -> 512x512 numpy array, or None if not found.
     """
     timestamp = pd.to_datetime(timestamp)
-    rounded = timestamp.round("36min")
+    rounded = timestamp.round(MODEL_CADENCE)  # match the index grid; see MODEL_CADENCE
 
     idx_loc = time_index.index.get_indexer([rounded], method="nearest")
     if idx_loc[0] == -1:

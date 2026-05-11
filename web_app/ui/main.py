@@ -90,6 +90,9 @@ with st.sidebar:
     _default = min(max(datetime.date(2017, 9, 6), date_min.date()), date_max.date())
 
     st.write("## Select Date Range")
+    # 36-minute steps mirror the model's observation cadence
+    # (core.data_access.MODEL_CADENCE); the API snaps requests to that grid
+    # anyway, so offering finer resolution here would just be misleading.
     start_date = st.date_input(
         "Start Date",
         value=_default,
