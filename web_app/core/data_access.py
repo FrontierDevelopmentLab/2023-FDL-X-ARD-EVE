@@ -97,8 +97,16 @@ def _discover_years() -> list[str]:
 def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
     """Build a mapping from timestamp -> (year, index) for each AIA wavelength.
 
-    Uses T_OBS attrs from the Zarr store. Caches result to parquet.
-    First run reads metadata (parallel), subsequent runs use cache.
+    Uses T_OBS attrs from the Zarr store. Caches result to parquet; the first
+    run reads metadata (parallel within each wavelength), subsequent runs use
+    the cache.
+
+    Processed one wavelength at a time: each wavelength's raw timestamp lists
+    are parsed, folded into the running inner-join, and then dropped before the
+    next wavelength is read. Peak memory therefore stays roughly proportional
+    to a single wavelength's metadata rather than the whole store at once —
+    which matters on small deployment hosts (this used to hold every
+    wavelength's timestamps simultaneously and could OOM a ~3 GiB box).
     """
     if INDEX_CACHE.exists():
         return pd.read_parquet(INDEX_CACHE)
@@ -106,52 +114,61 @@ def build_time_index(aia_root, progress_callback=None) -> pd.DataFrame:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     years = _discover_years()
+    if not years:
+        raise RuntimeError(
+            f"No year directories found in the AIA Zarr store "
+            f"({'s3://' + S3_BUCKET + '/' + AIA_ZARR_PREFIX if DATA_BACKEND == 's3' else LOCAL_DATA_ROOT / 'AIA.zarr'})."
+        )
     read_fn = _read_t_obs_s3 if DATA_BACKEND == "s3" else _read_t_obs_local
-
-    jobs = [(year, wl) for wl in AIA_WAVELENGTHS for year in years]
-    total = len(jobs)
-    results = {}  # (year, wl) -> list[str]
-
     max_workers = 8 if DATA_BACKEND == "s3" else 16
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(read_fn, year, wl): (year, wl) for year, wl in jobs}
-        done = 0
-        for future in as_completed(futures):
-            year, wl, t_obs = future.result()
-            results[(year, wl)] = t_obs
-            done += 1
-            if progress_callback:
-                progress_callback(done, total, f"{year}/{wl} ({len(t_obs)} timestamps)")
-            else:
-                print(f"  [{done}/{total}] {year}/{wl} ({len(t_obs)} timestamps)")
+    total = len(AIA_WAVELENGTHS) * len(years)
+    done = 0
 
-    # Build aligned index per wavelength, then join
-    join_series = None
+    join_index = None  # running inner-join of the per-wavelength frames
     for wl in AIA_WAVELENGTHS:
         frames = []
-        for year in years:
-            t_obs = results[(year, wl)]
-            df_wl = pd.DataFrame({
-                "Time": pd.to_datetime(t_obs, format="mixed", utc=True),
-                f"idx_{wl}": np.arange(len(t_obs)),
-                "year": int(year),
-            })
-            frames.append(df_wl)
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(read_fn, year, wl): year for year in years}
+            for future in as_completed(futures):
+                year, _wl, t_obs = future.result()
+                frames.append(pd.DataFrame({
+                    # T_OBS is ISO 8601 (e.g. "2014-09-22T13:18:14.84Z");
+                    # parse with the fast ISO path, coercing the odd bad
+                    # value to NaT rather than crashing the whole startup.
+                    "Time": pd.to_datetime(t_obs, format="ISO8601", utc=True, errors="coerce"),
+                    f"idx_{wl}": np.arange(len(t_obs)),
+                    "year": int(year),
+                }))
+                done += 1
+                msg = f"{year}/{wl} ({len(t_obs)} timestamps)"
+                if progress_callback:
+                    progress_callback(done, total, msg)
+                else:
+                    print(f"  [{done}/{total}] {msg}")
 
         df_wl = pd.concat(frames, ignore_index=True)
-        df_wl["Time"] = df_wl["Time"].dt.tz_localize(None)
-        df_wl["Time"] = df_wl["Time"].dt.round("36min")
-        df_wl = df_wl.drop_duplicates(subset="Time", keep="first")
-        df_wl.set_index("Time", inplace=True)
+        del frames
+        df_wl = df_wl.dropna(subset=["Time"]).copy()
+        df_wl["Time"] = df_wl["Time"].dt.tz_localize(None).dt.round("36min")
+        df_wl = df_wl.drop_duplicates(subset="Time", keep="first").set_index("Time")
 
-        if join_series is None:
-            join_series = df_wl
+        if join_index is None:
+            join_index = df_wl
         else:
-            join_series = join_series.join(df_wl[[f"idx_{wl}"]], how="inner")
+            # 'year' is wavelength-independent for a given timestamp, so only
+            # carry the new index column in from each subsequent wavelength.
+            join_index = join_index.join(df_wl[[f"idx_{wl}"]], how="inner")
+        del df_wl
 
-    join_series.sort_index(inplace=True)
-    join_series.to_parquet(INDEX_CACHE)
-    return join_series
+    if join_index is None or join_index.empty:
+        raise RuntimeError(
+            "Built an empty AIA time index — check that the Zarr .zattrs files "
+            "contain ISO 8601 T_OBS values and that the wavelengths share timestamps."
+        )
+
+    join_index.sort_index(inplace=True)
+    join_index.to_parquet(INDEX_CACHE)
+    return join_index
 
 
 # ── Query helpers ───────────────────────────────────────────────────────────
